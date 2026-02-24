@@ -251,13 +251,23 @@ with tab1:
             })
         else:
             # Mevcut verileri al
-            df_edit = df_existing[[
+            edit_cols = [
                 "malzeme_kodu", "barkod", "ad", "stok_takip", "ana_grup", "sub_grup",
                 "kalite", "tetikleyici", "birim_tuketim_birim", "birim_tuketim_miktar",
                 "fire_orani", "inner_box", "koli_ici", "toplam_paket_birim_miktar",
                 "uretici_kodu", "uretici_adi", "ortalama_tedarik_suresi", "ortalama_ek_sure",
                 "depo_stok", "min_sevk_miktari", "min_siparis_miktari", "guvenlik_stok"
-            ]].copy()
+            ]
+            # Eksik kolonlari ekle
+            for col in edit_cols:
+                if col not in df_existing.columns:
+                    if col in ["depo_stok", "guvenlik_stok"]:
+                        df_existing[col] = 0.0
+                    elif col in ["min_sevk_miktari", "min_siparis_miktari"]:
+                        df_existing[col] = 1
+                    else:
+                        df_existing[col] = ""
+            df_edit = df_existing[edit_cols].copy()
 
             # None degerleri bos string yap
             df_edit = df_edit.fillna("")
@@ -578,9 +588,19 @@ with tab2:
                 "oncelik": [1]
             })
         else:
-            df_edit = df_existing[[
-                "magaza_kodu", "magaza_adi", "sehir", "bolge", "bolge_muduru", "kapasite_adet", "m2", "yol_suresi", "oncelik"
-            ]].copy()
+            edit_cols = ["magaza_kodu", "magaza_adi", "sehir", "bolge", "bolge_muduru", "kapasite_adet", "m2", "yol_suresi", "oncelik"]
+            # Eksik kolonlari ekle
+            for col in edit_cols:
+                if col not in df_existing.columns:
+                    if col in ["yol_suresi", "oncelik"]:
+                        df_existing[col] = 1
+                    elif col in ["kapasite_adet"]:
+                        df_existing[col] = 0
+                    elif col in ["m2"]:
+                        df_existing[col] = 0.0
+                    else:
+                        df_existing[col] = ""
+            df_edit = df_existing[edit_cols].copy()
             df_edit = df_edit.fillna("")
 
         column_config = {
