@@ -81,12 +81,13 @@ st.markdown("""
 """, unsafe_allow_html=True)
 
 # Tabs
-tab1, tab2, tab3, tab4, tab5 = st.tabs([
+tab1, tab2, tab3, tab4, tab5, tab6 = st.tabs([
     "Malzeme Bilgi",
     "Magaza Bilgi",
     "Tuketim Hesaplama",
     "Ayarlar",
-    "Stok Analiz"
+    "Stok Analiz",
+    "Ihtiyac & Siparis"
 ])
 
 
@@ -151,7 +152,8 @@ with tab1:
                 "malzeme_kodu", "barkod", "ad", "stok_takip", "ana_grup", "sub_grup",
                 "kalite", "tetikleyici", "birim_tuketim_birim", "birim_tuketim_miktar",
                 "fire_orani", "inner_box", "koli_ici", "toplam_paket_birim_miktar",
-                "uretici_kodu", "uretici_adi", "ortalama_tedarik_suresi", "ortalama_ek_sure"
+                "uretici_kodu", "uretici_adi", "ortalama_tedarik_suresi", "ortalama_ek_sure",
+                "depo_stok", "min_sevk_miktari", "min_siparis_miktari", "guvenlik_stok"
             ]
 
             display_names = {
@@ -172,7 +174,11 @@ with tab1:
                 "uretici_kodu": "Uretici Kodu",
                 "uretici_adi": "Uretici Adi",
                 "ortalama_tedarik_suresi": "Ort. Tedarik Suresi",
-                "ortalama_ek_sure": "Ort. Ek Sure"
+                "ortalama_ek_sure": "Ort. Ek Sure",
+                "depo_stok": "Depo Stok",
+                "min_sevk_miktari": "Min Sevk",
+                "min_siparis_miktari": "Min Siparis",
+                "guvenlik_stok": "Guvenlik Stok"
             }
 
             # Sadece mevcut kolonlari al
@@ -237,7 +243,11 @@ with tab1:
                 "uretici_kodu": [""],
                 "uretici_adi": [""],
                 "ortalama_tedarik_suresi": [0.0],
-                "ortalama_ek_sure": [0.0]
+                "ortalama_ek_sure": [0.0],
+                "depo_stok": [0.0],
+                "min_sevk_miktari": [1],
+                "min_siparis_miktari": [1],
+                "guvenlik_stok": [0.0]
             })
         else:
             # Mevcut verileri al
@@ -245,7 +255,8 @@ with tab1:
                 "malzeme_kodu", "barkod", "ad", "stok_takip", "ana_grup", "sub_grup",
                 "kalite", "tetikleyici", "birim_tuketim_birim", "birim_tuketim_miktar",
                 "fire_orani", "inner_box", "koli_ici", "toplam_paket_birim_miktar",
-                "uretici_kodu", "uretici_adi", "ortalama_tedarik_suresi", "ortalama_ek_sure"
+                "uretici_kodu", "uretici_adi", "ortalama_tedarik_suresi", "ortalama_ek_sure",
+                "depo_stok", "min_sevk_miktari", "min_siparis_miktari", "guvenlik_stok"
             ]].copy()
 
             # None degerleri bos string yap
@@ -332,6 +343,26 @@ with tab1:
             "ortalama_ek_sure": st.column_config.NumberColumn(
                 "Ort. Ek Sure",
                 help="Ortalama ek sure (gun)",
+                format="%.1f"
+            ),
+            "depo_stok": st.column_config.NumberColumn(
+                "Depo Stok",
+                help="Merkez depodaki mevcut stok",
+                format="%.1f"
+            ),
+            "min_sevk_miktari": st.column_config.NumberColumn(
+                "Min Sevk",
+                help="Magazaya minimum sevk miktari",
+                format="%d"
+            ),
+            "min_siparis_miktari": st.column_config.NumberColumn(
+                "Min Siparis",
+                help="Ureticiye minimum siparis miktari",
+                format="%d"
+            ),
+            "guvenlik_stok": st.column_config.NumberColumn(
+                "Guvenlik Stok",
+                help="Minimum guvenlik stok seviyesi",
                 format="%.1f"
             )
         }
@@ -503,7 +534,7 @@ with tab2:
         df_magaza = get_magazalar()
 
         if not df_magaza.empty:
-            display_cols = ["magaza_kodu", "magaza_adi", "sehir", "bolge", "bolge_muduru", "kapasite_adet", "m2"]
+            display_cols = ["magaza_kodu", "magaza_adi", "sehir", "bolge", "bolge_muduru", "kapasite_adet", "m2", "yol_suresi", "oncelik"]
             display_names = {
                 "magaza_kodu": "Magaza Kodu",
                 "magaza_adi": "Magaza Adi",
@@ -511,7 +542,9 @@ with tab2:
                 "bolge": "Bolge",
                 "bolge_muduru": "Bolge Muduru",
                 "kapasite_adet": "Kapasite Adet",
-                "m2": "M2"
+                "m2": "M2",
+                "yol_suresi": "Yol Suresi (Gun)",
+                "oncelik": "Oncelik"
             }
 
             available_cols = [c for c in display_cols if c in df_magaza.columns]
@@ -540,11 +573,13 @@ with tab2:
                 "bolge": [""],
                 "bolge_muduru": [""],
                 "kapasite_adet": [0],
-                "m2": [0.0]
+                "m2": [0.0],
+                "yol_suresi": [1],
+                "oncelik": [1]
             })
         else:
             df_edit = df_existing[[
-                "magaza_kodu", "magaza_adi", "sehir", "bolge", "bolge_muduru", "kapasite_adet", "m2"
+                "magaza_kodu", "magaza_adi", "sehir", "bolge", "bolge_muduru", "kapasite_adet", "m2", "yol_suresi", "oncelik"
             ]].copy()
             df_edit = df_edit.fillna("")
 
@@ -555,7 +590,9 @@ with tab2:
             "bolge": st.column_config.TextColumn("Bolge", max_chars=100),
             "bolge_muduru": st.column_config.TextColumn("Bolge Muduru", max_chars=100),
             "kapasite_adet": st.column_config.NumberColumn("Kapasite Adet", format="%d"),
-            "m2": st.column_config.NumberColumn("M2", format="%.1f")
+            "m2": st.column_config.NumberColumn("M2", format="%.1f"),
+            "yol_suresi": st.column_config.NumberColumn("Yol Suresi (Gun)", help="Depodan magazaya teslim suresi", format="%d"),
+            "oncelik": st.column_config.NumberColumn("Oncelik", help="1=Yuksek, 2=Orta, 3=Dusuk", format="%d")
         }
 
         edited_df = st.data_editor(
@@ -1488,6 +1525,308 @@ with tab5:
                 st.error(f"CSV okuma hatasi: {str(e)}")
 
 
+# =============================================================================
+# TAB 6: IHTIYAC & SIPARIS
+# =============================================================================
+with tab6:
+    st.markdown("### Ihtiyac Analizi & Siparis/Sevk Onerisi")
+
+    ihtiyac_mode = st.radio(
+        "Islem",
+        ["Ihtiyac Hesapla", "Sevk Plani", "Siparis Onerisi", "Ozet Rapor"],
+        horizontal=True,
+        key="ihtiyac_mode"
+    )
+
+    df_malz = get_malzemeler()
+    df_mag = get_magazalar()
+
+    if df_malz.empty:
+        st.warning("Once malzeme tanimlayin.")
+    elif df_mag.empty:
+        st.warning("Once magaza tanimlayin.")
+    else:
+        if ihtiyac_mode == "Ihtiyac Hesapla":
+            st.markdown("---")
+            st.markdown("#### Magaza Bazli Ihtiyac Hesaplama")
+
+            # Filtreler
+            col_f1, col_f2, col_f3 = st.columns(3)
+
+            with col_f1:
+                magaza_options = ["Tum Magazalar"] + df_mag["magaza_kodu"].tolist()
+                secili_magaza = st.selectbox("Magaza", magaza_options, key="ih_magaza")
+
+            with col_f2:
+                malzeme_options = ["Tum Malzemeler"] + df_malz["malzeme_kodu"].tolist()
+                secili_malzeme = st.selectbox("Malzeme", malzeme_options, key="ih_malzeme")
+
+            with col_f3:
+                planlama_donem = st.number_input("Planlama Donemi (Gun)", min_value=1, max_value=90, value=30, key="ih_donem")
+
+            # Stok verilerini al
+            df_stok = get_magaza_malzeme_stok()
+
+            if st.button("Ihtiyac Hesapla", type="primary", use_container_width=True, key="btn_ihtiyac"):
+                if df_stok.empty:
+                    st.warning("Stok verisi bulunamadi. Once Stok Analiz sekmesinden veri girin.")
+                else:
+                    # Hesaplama
+                    sonuclar = []
+
+                    # Magazalari filtrele
+                    magazalar = df_mag if secili_magaza == "Tum Magazalar" else df_mag[df_mag["magaza_kodu"] == secili_magaza]
+
+                    # Malzemeleri filtrele
+                    malzemeler = df_malz if secili_malzeme == "Tum Malzemeler" else df_malz[df_malz["malzeme_kodu"] == secili_malzeme]
+
+                    for _, mag in magazalar.iterrows():
+                        for _, malz in malzemeler.iterrows():
+                            # Mevcut stok
+                            stok_row = df_stok[
+                                (df_stok["magaza_kodu"] == mag["magaza_kodu"]) &
+                                (df_stok["malzeme_kodu"] == malz["malzeme_kodu"])
+                            ]
+
+                            if stok_row.empty:
+                                magaza_stok = 0
+                                gunluk_satis = 0
+                            else:
+                                magaza_stok = stok_row.iloc[0].get("stok", 0) or 0
+                                satis = stok_row.iloc[0].get("satis", 0) or 0
+                                gunluk_satis = satis / 30  # Aylik satisi gunluge cevir
+
+                            # Planlama donemi icin ihtiyac
+                            donem_ihtiyaci = gunluk_satis * planlama_donem
+
+                            # Fire dahil ihtiyac
+                            fire_orani = malz.get("fire_orani", 0) or 0
+                            net_ihtiyac = donem_ihtiyaci * (1 + fire_orani / 100)
+
+                            # Guvenlik stok
+                            guvenlik = malz.get("guvenlik_stok", 0) or 0
+
+                            # Toplam ihtiyac
+                            toplam_ihtiyac = net_ihtiyac + guvenlik - magaza_stok
+
+                            # Sevk/Siparis durumu
+                            depo_stok = malz.get("depo_stok", 0) or 0
+                            min_sevk = malz.get("min_sevk_miktari", 1) or 1
+                            min_siparis = malz.get("min_siparis_miktari", 1) or 1
+
+                            if toplam_ihtiyac <= 0:
+                                aksiyon = "Stok Yeterli"
+                                sevk_miktar = 0
+                                siparis_miktar = 0
+                            elif depo_stok >= toplam_ihtiyac:
+                                aksiyon = "Depodan Sevk"
+                                sevk_miktar = max(toplam_ihtiyac, min_sevk)
+                                siparis_miktar = 0
+                            elif depo_stok > 0:
+                                aksiyon = "Sevk + Siparis"
+                                sevk_miktar = depo_stok
+                                siparis_miktar = max(toplam_ihtiyac - depo_stok, min_siparis)
+                            else:
+                                aksiyon = "Uretici Siparis"
+                                sevk_miktar = 0
+                                siparis_miktar = max(toplam_ihtiyac, min_siparis)
+
+                            if toplam_ihtiyac > 0 or magaza_stok > 0:
+                                sonuclar.append({
+                                    "Magaza": mag["magaza_kodu"],
+                                    "Malzeme": malz["malzeme_kodu"],
+                                    "Malzeme Adi": malz["ad"][:20] if malz["ad"] else "",
+                                    "Magaza Stok": round(magaza_stok, 1),
+                                    "Gunluk Satis": round(gunluk_satis, 2),
+                                    "Donem Ihtiyac": round(net_ihtiyac, 1),
+                                    "Guvenlik Stok": round(guvenlik, 1),
+                                    "Net Ihtiyac": round(max(toplam_ihtiyac, 0), 1),
+                                    "Depo Stok": round(depo_stok, 1),
+                                    "Aksiyon": aksiyon,
+                                    "Sevk Miktar": round(sevk_miktar, 1),
+                                    "Siparis Miktar": round(siparis_miktar, 1),
+                                    "Yol Suresi": mag.get("yol_suresi", 1),
+                                    "Tedarik Suresi": malz.get("ortalama_tedarik_suresi", 0)
+                                })
+
+                    if sonuclar:
+                        df_sonuc = pd.DataFrame(sonuclar)
+
+                        # Ozet metrikler
+                        col_m1, col_m2, col_m3, col_m4 = st.columns(4)
+                        with col_m1:
+                            st.metric("Toplam Kayit", len(df_sonuc))
+                        with col_m2:
+                            sevk_gerekli = len(df_sonuc[df_sonuc["Aksiyon"].str.contains("Sevk")])
+                            st.metric("Sevk Gerekli", sevk_gerekli)
+                        with col_m3:
+                            siparis_gerekli = len(df_sonuc[df_sonuc["Aksiyon"].str.contains("Siparis")])
+                            st.metric("Siparis Gerekli", siparis_gerekli)
+                        with col_m4:
+                            yeterli = len(df_sonuc[df_sonuc["Aksiyon"] == "Stok Yeterli"])
+                            st.metric("Stok Yeterli", yeterli)
+
+                        st.markdown("---")
+
+                        # Renk kodlu tablo
+                        def highlight_aksiyon(row):
+                            if row["Aksiyon"] == "Stok Yeterli":
+                                return ['background-color: #dcfce7'] * len(row)
+                            elif row["Aksiyon"] == "Depodan Sevk":
+                                return ['background-color: #fef3c7'] * len(row)
+                            elif row["Aksiyon"] == "Uretici Siparis":
+                                return ['background-color: #fee2e2'] * len(row)
+                            else:
+                                return ['background-color: #fce7f3'] * len(row)
+
+                        st.dataframe(
+                            df_sonuc.style.apply(highlight_aksiyon, axis=1),
+                            use_container_width=True,
+                            hide_index=True,
+                            height=500
+                        )
+
+                        # CSV indir
+                        csv_data = df_sonuc.to_csv(index=False, encoding='utf-8-sig')
+                        st.download_button(
+                            "CSV Indir",
+                            csv_data.encode('utf-8-sig'),
+                            f"ihtiyac_analizi_{planlama_donem}gun.csv",
+                            "text/csv"
+                        )
+                    else:
+                        st.info("Hesaplanacak veri bulunamadi.")
+
+        elif ihtiyac_mode == "Sevk Plani":
+            st.markdown("---")
+            st.markdown("#### Depodan Magazaya Sevk Plani")
+
+            st.info("Depo stogu mevcut olan malzemeler icin magaza sevk onerisi")
+
+            # Sadece depo stogu olan malzemeleri goster
+            df_depo_var = df_malz[df_malz["depo_stok"] > 0]
+
+            if df_depo_var.empty:
+                st.warning("Depo stogu bulunan malzeme yok. Malzeme tanimlarindan depo stok giriniz.")
+            else:
+                st.markdown(f"**{len(df_depo_var)} malzemede depo stogu mevcut**")
+
+                sevk_data = []
+                for _, malz in df_depo_var.iterrows():
+                    sevk_data.append({
+                        "Malzeme Kodu": malz["malzeme_kodu"],
+                        "Malzeme Adi": malz["ad"][:25] if malz["ad"] else "",
+                        "Depo Stok": malz["depo_stok"],
+                        "Min Sevk": malz["min_sevk_miktari"],
+                        "Tedarik Suresi": malz["ortalama_tedarik_suresi"],
+                        "Guvenlik Stok": malz["guvenlik_stok"]
+                    })
+
+                df_sevk = pd.DataFrame(sevk_data)
+                st.dataframe(df_sevk, use_container_width=True, hide_index=True)
+
+        elif ihtiyac_mode == "Siparis Onerisi":
+            st.markdown("---")
+            st.markdown("#### Uretici Siparis Onerisi")
+
+            st.info("Depo stogu yetersiz olan malzemeler icin uretici siparis onerisi")
+
+            # Depo stogu dusuk veya yok olan malzemeleri bul
+            siparis_data = []
+
+            for _, malz in df_malz.iterrows():
+                depo_stok = malz.get("depo_stok", 0) or 0
+                guvenlik = malz.get("guvenlik_stok", 0) or 0
+                min_siparis = malz.get("min_siparis_miktari", 1) or 1
+
+                # Depo stogu guvenlik stokunun altindaysa siparis onerisi
+                if depo_stok < guvenlik:
+                    siparis_miktar = max(guvenlik - depo_stok, min_siparis)
+                    siparis_data.append({
+                        "Malzeme Kodu": malz["malzeme_kodu"],
+                        "Malzeme Adi": malz["ad"][:25] if malz["ad"] else "",
+                        "Depo Stok": depo_stok,
+                        "Guvenlik Stok": guvenlik,
+                        "Eksik": guvenlik - depo_stok,
+                        "Min Siparis": min_siparis,
+                        "Onerilen Siparis": siparis_miktar,
+                        "Uretici": malz.get("uretici_adi", ""),
+                        "Tedarik Suresi (Gun)": malz.get("ortalama_tedarik_suresi", 0)
+                    })
+
+            if siparis_data:
+                df_siparis = pd.DataFrame(siparis_data)
+
+                # Ozet
+                st.metric("Siparis Gereken Malzeme", len(df_siparis))
+
+                st.dataframe(
+                    df_siparis,
+                    use_container_width=True,
+                    hide_index=True,
+                    height=400
+                )
+
+                # CSV indir
+                csv_data = df_siparis.to_csv(index=False, encoding='utf-8-sig')
+                st.download_button(
+                    "Siparis Listesi Indir",
+                    csv_data.encode('utf-8-sig'),
+                    "siparis_onerisi.csv",
+                    "text/csv"
+                )
+            else:
+                st.success("Tum malzemelerin depo stogu yeterli seviyede.")
+
+        else:  # Ozet Rapor
+            st.markdown("---")
+            st.markdown("#### Genel Ozet Rapor")
+
+            col1, col2 = st.columns(2)
+
+            with col1:
+                st.markdown("**Malzeme Durumu**")
+
+                toplam_malzeme = len(df_malz)
+                depo_stok_var = len(df_malz[df_malz["depo_stok"] > 0])
+                depo_stok_yok = toplam_malzeme - depo_stok_var
+
+                st.metric("Toplam Malzeme", toplam_malzeme)
+                st.metric("Depo Stogu Olan", depo_stok_var)
+                st.metric("Depo Stogu Olmayan", depo_stok_yok)
+
+                # Tetikleyici bazli dagilim
+                st.markdown("**Tetikleyici Dagilimi**")
+                tetik_dagilim = df_malz.groupby("tetikleyici").size().reset_index(name="Adet")
+                st.dataframe(tetik_dagilim, use_container_width=True, hide_index=True)
+
+            with col2:
+                st.markdown("**Magaza Durumu**")
+
+                toplam_magaza = len(df_mag)
+                st.metric("Toplam Magaza", toplam_magaza)
+
+                # Bolge bazli dagilim
+                if "bolge" in df_mag.columns:
+                    st.markdown("**Bolge Dagilimi**")
+                    bolge_dagilim = df_mag.groupby("bolge").size().reset_index(name="Magaza Sayisi")
+                    st.dataframe(bolge_dagilim, use_container_width=True, hide_index=True)
+
+            st.markdown("---")
+            st.markdown("**Kritik Stok Uyarilari**")
+
+            # Guvenlik stokunun altinda depo stogu olan malzemeler
+            kritik = df_malz[df_malz["depo_stok"] < df_malz["guvenlik_stok"]]
+
+            if not kritik.empty:
+                st.warning(f"{len(kritik)} malzemede depo stogu guvenlik stokunun altinda!")
+                kritik_display = kritik[["malzeme_kodu", "ad", "depo_stok", "guvenlik_stok"]].copy()
+                kritik_display["Eksik"] = kritik_display["guvenlik_stok"] - kritik_display["depo_stok"]
+                st.dataframe(kritik_display, use_container_width=True, hide_index=True)
+            else:
+                st.success("Kritik stok uyarisi yok.")
+
+
 # Footer
 st.markdown("---")
-st.caption("EnglishHome - Sarf Malzeme Yonetimi v2.0 | Veriler otomatik kaydedilir")
+st.caption("EnglishHome - Sarf Malzeme Yonetimi v2.1 | Veriler otomatik kaydedilir")
