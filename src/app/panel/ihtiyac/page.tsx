@@ -111,7 +111,8 @@ export default function IhtiyacPage() {
         const metodNotlar: string[] = []
 
         // Son 3 hafta için hafta bilgilerini hesapla
-        const h1 = getPreviousWeek(currentYil, currentHafta)
+        // h1 = son hafta (verideki en son hafta), h2 = bir önceki, h3 = iki önceki
+        const h1 = { yil: currentYil, hafta: currentHafta } // Son hafta (verideki en güncel)
         const h2 = getPreviousWeek(h1.yil, h1.hafta)
         const h3 = getPreviousWeek(h2.yil, h2.hafta)
 
@@ -460,7 +461,7 @@ export default function IhtiyacPage() {
         <div>
           <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">İhtiyaç Planlama</h1>
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
-            Sevkiyat ve üretim planlaması (Hafta {currentHafta}/{currentYil})
+            Sevkiyat ve üretim planlaması (Verideki son hafta: {currentHafta}/{currentYil} • Toplam kayıt: {stokSatislar.length})
           </p>
         </div>
         <button
