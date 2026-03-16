@@ -97,8 +97,65 @@ export const updateClusterYolSuresi = async (cluster: string, yolSuresi: number)
 
 // ==================== STOK SATISLAR ====================
 
+// Tüm kayıtları getir (dikkat: çok veri varsa yavaş olabilir)
 export const getStokSatislar = async (): Promise<StokSatis[]> => {
   const snapshot = await getDocs(collection(db, COLLECTIONS.STOK_SATISLAR))
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StokSatis))
+}
+
+// Son N haftanın verilerini getir (performanslı)
+export const getStokSatislarByWeeks = async (weekCount: number = 12): Promise<StokSatis[]> => {
+  // Şu anki yıl ve hafta
+  const now = new Date()
+  const startOfYear = new Date(now.getFullYear(), 0, 1)
+  const days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000))
+  const currentWeek = Math.ceil((days + startOfYear.getDay() + 1) / 7)
+  const currentYear = now.getFullYear()
+
+  // Son weekCount hafta için minimum yıl ve hafta hesapla
+  let minYear = currentYear
+  let minWeek = currentWeek - weekCount
+  if (minWeek <= 0) {
+    minYear -= 1
+    minWeek = 52 + minWeek
+  }
+
+  // Firestore'dan sadece son haftaları çek
+  const q = query(
+    collection(db, COLLECTIONS.STOK_SATISLAR),
+    where('yil', '>=', minYear)
+  )
+
+  const snapshot = await getDocs(q)
+  const results = snapshot.docs
+    .map(doc => ({ id: doc.id, ...doc.data() } as StokSatis))
+    .filter(s => {
+      // Ek filtreleme (Firestore compound query limiti nedeniyle)
+      if (s.yil > minYear) return true
+      if (s.yil === minYear && s.hafta >= minWeek) return true
+      return false
+    })
+
+  return results
+}
+
+// Belirli mağaza için verileri getir
+export const getStokSatislarByMagaza = async (magazaKodu: string): Promise<StokSatis[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.STOK_SATISLAR),
+    where('magazaKodu', '==', magazaKodu)
+  )
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StokSatis))
+}
+
+// Belirli malzeme için verileri getir
+export const getStokSatislarByMalzeme = async (malzemeKodu: string): Promise<StokSatis[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.STOK_SATISLAR),
+    where('malzemeKodu', '==', malzemeKodu)
+  )
+  const snapshot = await getDocs(q)
   return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as StokSatis))
 }
 
