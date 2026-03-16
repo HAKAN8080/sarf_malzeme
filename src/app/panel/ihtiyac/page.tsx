@@ -29,16 +29,26 @@ export default function IhtiyacPage() {
   const aktivMagazalar = magazalar.filter(m => m.aktif)
   const aktivMalzemeler = malzemeler.filter(m => m.aktif)
 
-  // Mevcut yıl ve hafta hesapla
-  const getCurrentWeekInfo = () => {
-    const now = new Date()
-    const startOfYear = new Date(now.getFullYear(), 0, 1)
-    const days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000))
-    const currentWeek = Math.ceil((days + startOfYear.getDay() + 1) / 7)
-    return { yil: now.getFullYear(), hafta: currentWeek }
+  // Veri setindeki en son hafta bilgisini al (bugünü değil, verideki son haftayı kullan)
+  const getLatestWeekFromData = () => {
+    if (stokSatislar.length === 0) {
+      // Veri yoksa bugünü kullan
+      const now = new Date()
+      const startOfYear = new Date(now.getFullYear(), 0, 1)
+      const days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000))
+      const currentWeek = Math.ceil((days + startOfYear.getDay() + 1) / 7)
+      return { yil: now.getFullYear(), hafta: currentWeek }
+    }
+
+    // Verideki en son haftayı bul
+    return stokSatislar.reduce((latest, current) => {
+      if (current.yil > latest.yil) return { yil: current.yil, hafta: current.hafta }
+      if (current.yil === latest.yil && current.hafta > latest.hafta) return { yil: current.yil, hafta: current.hafta }
+      return latest
+    }, { yil: stokSatislar[0].yil, hafta: stokSatislar[0].hafta })
   }
 
-  const { yil: currentYil, hafta: currentHafta } = getCurrentWeekInfo()
+  const { yil: currentYil, hafta: currentHafta } = getLatestWeekFromData()
 
   // Hafta bazlı satış verisi getir
   const getSalesForWeek = (magazaKodu: string, malzemeKodu: string, yil: number, hafta: number): number | null => {
@@ -548,7 +558,7 @@ export default function IhtiyacPage() {
               className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))] appearance-none"
             >
               <option value="">Tüm Malzemeler</option>
-              {aktivMalzemeler.filter(m => m.tetikleyici === 'Satış adeti').map(m => (
+              {aktivMalzemeler.filter(m => m.tetikleyici?.toLowerCase().includes('satış') || m.tetikleyici?.toLowerCase().includes('satis')).map(m => (
                 <option key={m.id} value={m.id}>{m.ad}</option>
               ))}
             </select>
