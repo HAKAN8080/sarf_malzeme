@@ -241,7 +241,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       }
 
       // Load all data from Firestore
-      // StokSatislar için son 16 hafta yüklenir (performans için)
+      // StokSatislar için son 4 hafta yüklenir (performans için)
       const [
         loadedMalzemeler,
         loadedMagazalar,
@@ -253,7 +253,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       ] = await Promise.all([
         firestore.getMalzemeler(),
         firestore.getMagazalar(),
-        firestore.getStokSatislarByWeeks(16), // Son 16 hafta
+        firestore.getStokSatislarByWeeks(4), // Son 4 hafta (ihtiyaç hesabı için yeterli)
         firestore.getHareketler(),
         firestore.getKullanicilar(),
         firestore.getKategoriler(),
@@ -420,8 +420,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   ) => {
     try {
       const result = await firestore.bulkUpsertStokSatis(records, [], onProgress)
-      // Refresh only last 16 weeks from Firestore after bulk operation
-      const updatedStokSatislar = await firestore.getStokSatislarByWeeks(16)
+      // Refresh only last 4 weeks from Firestore after bulk operation
+      const updatedStokSatislar = await firestore.getStokSatislarByWeeks(4)
       setStokSatislar(updatedStokSatislar)
       return result
     } catch (error) {
