@@ -40,6 +40,10 @@ export default function MagazalarPage() {
     m2: 0,
     yolSuresi: 3, // default 3 hafta
     oncelik: 2 as 1 | 2 | 3,
+    ortalamaFisSayisi: 0,
+    fbu: 0,
+    fbs: 0,
+    satisAdet: 0,
     aktif: true,
   })
 
@@ -70,6 +74,10 @@ export default function MagazalarPage() {
       m2: 0,
       yolSuresi: 3, // default 3 hafta
       oncelik: 2,
+      ortalamaFisSayisi: 0,
+      fbu: 0,
+      fbs: 0,
+      satisAdet: 0,
       aktif: true,
     })
     setShowModal(true)
@@ -88,6 +96,10 @@ export default function MagazalarPage() {
       m2: magaza.m2 || 0,
       yolSuresi: magaza.yolSuresi || 3, // default 3 hafta
       oncelik: magaza.oncelik,
+      ortalamaFisSayisi: magaza.ortalamaFisSayisi || 0,
+      fbu: magaza.fbu || 0,
+      fbs: magaza.fbs || 0,
+      satisAdet: magaza.satisAdet || 0,
       aktif: magaza.aktif,
     })
     setShowModal(true)
@@ -110,7 +122,7 @@ export default function MagazalarPage() {
 
   // CSV Export
   const exportCSV = () => {
-    const headers = ['magaza_kodu', 'magaza_adi', 'cluster', 'sehir', 'bolge', 'bolge_muduru', 'kapasite_adet', 'm2', 'yol_suresi', 'oncelik']
+    const headers = ['magaza_kodu', 'magaza_adi', 'cluster', 'sehir', 'bolge', 'bolge_muduru', 'ortalama_fis_sayisi', 'fbu', 'fbs', 'satis_adet', 'kapasite_adet', 'm2', 'yol_suresi', 'oncelik']
     const rows = filteredMagazalar.map(m => [
       m.magazaKodu,
       m.magazaAdi,
@@ -118,6 +130,10 @@ export default function MagazalarPage() {
       m.sehir || '',
       m.bolge || '',
       m.bolgeMuduru || '',
+      (m.ortalamaFisSayisi || '').toString(),
+      (m.fbu || '').toString(),
+      (m.fbs || '').toString(),
+      (m.satisAdet || '').toString(),
       (m.kapasiteAdet || '').toString(),
       (m.m2 || '').toString(),
       (m.yolSuresi || '').toString(),
@@ -139,11 +155,11 @@ export default function MagazalarPage() {
 
   // Download example CSV
   const downloadExampleCSV = () => {
-    const headers = ['magaza_kodu', 'magaza_adi', 'cluster', 'sehir', 'bolge', 'bolge_muduru', 'kapasite_adet', 'm2', 'yol_suresi', 'oncelik']
+    const headers = ['magaza_kodu', 'magaza_adi', 'cluster', 'sehir', 'bolge', 'bolge_muduru', 'ortalama_fis_sayisi', 'fbu', 'fbs', 'satis_adet', 'kapasite_adet', 'm2', 'yol_suresi', 'oncelik']
     const exampleRows = [
-      ['M001', 'Merkez Mağaza', 'Top1', 'İstanbul', 'Avrupa', 'Ahmet Yılmaz', '500', '250', '1', '1'],
-      ['M002', 'Kadıköy Şube', 'Top1', 'İstanbul', 'Anadolu', 'Mehmet Demir', '300', '180', '1', '2'],
-      ['M003', 'Ankara Şube', 'Top2', 'Ankara', 'İç Anadolu', 'Ayşe Kaya', '400', '200', '2', '1'],
+      ['M001', 'Merkez Mağaza', 'Top1', 'İstanbul', 'Avrupa', 'Ahmet Yılmaz', '1250', '3.2', '285', '4000', '500', '250', '3', '1'],
+      ['M002', 'Kadıköy Şube', 'Top1', 'İstanbul', 'Anadolu', 'Mehmet Demir', '850', '2.8', '220', '2380', '300', '180', '3', '2'],
+      ['M003', 'Ankara Şube', 'Top2', 'Ankara', 'İç Anadolu', 'Ayşe Kaya', '980', '3.0', '250', '2940', '400', '200', '3', '1'],
     ]
 
     const csvContent = [headers, ...exampleRows]
@@ -210,6 +226,10 @@ export default function MagazalarPage() {
           sehir: getValue('sehir') || undefined,
           bolge: getValue('bolge') || undefined,
           bolgeMuduru: getValue('bolge_muduru') || undefined,
+          ortalamaFisSayisi: parseInt(getValue('ortalama_fis_sayisi')) || undefined,
+          fbu: parseFloat(getValue('fbu')) || undefined,
+          fbs: parseFloat(getValue('fbs')) || undefined,
+          satisAdet: parseInt(getValue('satis_adet')) || undefined,
           kapasiteAdet: parseInt(getValue('kapasite_adet')) || undefined,
           m2: parseInt(getValue('m2')) || undefined,
           yolSuresi: parseInt(getValue('yol_suresi')) || 3, // default 3 hafta
@@ -301,9 +321,10 @@ export default function MagazalarPage() {
                 <th className="text-left px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Cluster</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Şehir</th>
                 <th className="text-left px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Bölge</th>
-                <th className="text-left px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Bölge Müdürü</th>
-                <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Kapasite</th>
-                <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">m²</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Ort. Fiş</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">FBÜ</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">FBS</th>
+                <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Satış Adet</th>
                 <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Yol Süresi</th>
                 <th className="text-center px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Öncelik</th>
                 <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">İşlem</th>
@@ -312,7 +333,7 @@ export default function MagazalarPage() {
             <tbody>
               {filteredMagazalar.length === 0 ? (
                 <tr>
-                  <td colSpan={11} className="px-4 py-12 text-center text-[hsl(var(--muted-foreground))]">
+                  <td colSpan={12} className="px-4 py-12 text-center text-[hsl(var(--muted-foreground))]">
                     <Store className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p>Mağaza bulunamadı</p>
                   </td>
@@ -331,9 +352,10 @@ export default function MagazalarPage() {
                     </td>
                     <td className="px-3 py-2 whitespace-nowrap">{magaza.sehir || '-'}</td>
                     <td className="px-3 py-2 whitespace-nowrap">{magaza.bolge || '-'}</td>
-                    <td className="px-3 py-2 whitespace-nowrap">{magaza.bolgeMuduru || '-'}</td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap">{magaza.kapasiteAdet || '-'}</td>
-                    <td className="px-3 py-2 text-right whitespace-nowrap">{magaza.m2 || '-'}</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap">{magaza.ortalamaFisSayisi?.toLocaleString('tr-TR') || '-'}</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap">{magaza.fbu?.toFixed(1) || '-'}</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap">{magaza.fbs?.toLocaleString('tr-TR') || '-'}</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap">{magaza.satisAdet?.toLocaleString('tr-TR') || '-'}</td>
                     <td className="px-3 py-2 text-right whitespace-nowrap">{magaza.yolSuresi ? `${magaza.yolSuresi} hafta` : '3 hafta'}</td>
                     <td className="px-3 py-2 text-center whitespace-nowrap">{getOncelikBadge(magaza.oncelik)}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
@@ -432,6 +454,51 @@ export default function MagazalarPage() {
                     type="text"
                     value={formData.bolgeMuduru}
                     onChange={(e) => setFormData({ ...formData, bolgeMuduru: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] text-sm"
+                  />
+                </div>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-4 gap-4">
+                <div>
+                  <label className="block text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1">Ort. Fiş Sayısı</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.ortalamaFisSayisi}
+                    onChange={(e) => setFormData({ ...formData, ortalamaFisSayisi: parseInt(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1">FBÜ (Fiş Başına Ürün)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.1"
+                    value={formData.fbu}
+                    onChange={(e) => setFormData({ ...formData, fbu: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1">FBS (Fiş Başına Satış)</label>
+                  <input
+                    type="number"
+                    min="0"
+                    step="0.01"
+                    value={formData.fbs}
+                    onChange={(e) => setFormData({ ...formData, fbs: parseFloat(e.target.value) || 0 })}
+                    className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] text-sm"
+                  />
+                </div>
+                <div>
+                  <label className="block text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1">Satış Adet</label>
+                  <input
+                    type="number"
+                    min="0"
+                    value={formData.satisAdet}
+                    onChange={(e) => setFormData({ ...formData, satisAdet: parseInt(e.target.value) || 0 })}
                     className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] text-sm"
                   />
                 </div>

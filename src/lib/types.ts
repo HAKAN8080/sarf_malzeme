@@ -7,7 +7,7 @@ export interface Malzeme {
   anaGrup: string
   subGrup?: string
   kalite?: string
-  tetikleyici: 'Fiş sayısı' | 'Satış adeti' | 'Manuel'
+  tetikleyici: string // Satış, Kampanya/Fiyat, Manuel vb.
   stokTakip: 'Var' | 'Yok'
   birimTuketimBirim: string // adet, kg, litre vb.
   birimTuketimMiktar: number
@@ -41,6 +41,11 @@ export interface Magaza {
   m2?: number
   yolSuresi: number // hafta (default: 3)
   oncelik: 1 | 2 | 3 // 1=Yüksek, 2=Orta, 3=Düşük
+  // Haftalık ortalama performans metrikleri
+  ortalamaFisSayisi?: number // Haftalık ortalama fiş sayısı
+  fbu?: number // Fiş Başına Ürün (adet)
+  fbs?: number // Fiş Başına Satış (TL)
+  satisAdet?: number // Haftalık ortalama satış adeti
   aktif: boolean
   createdAt: string
   updatedAt: string
@@ -94,7 +99,7 @@ export interface IhtiyacSonuc {
   magazaAdi: string
   malzemeKodu: string
   malzemeAdi: string
-  tetikleyici: 'Fiş sayısı' | 'Satış adeti' | 'Manuel'
+  tetikleyici: string // Satış, Kampanya/Fiyat, Manuel vb.
   // Son 3 hafta satış verileri
   sonHaftaSatis: number
   oncekiHaftaSatis: number

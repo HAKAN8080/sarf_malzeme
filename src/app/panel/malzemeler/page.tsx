@@ -43,7 +43,7 @@ export default function MalzemelerPage() {
     anaGrup: '',
     subGrup: '',
     kalite: '',
-    tetikleyici: 'Manuel' as 'Fiş sayısı' | 'Satış adeti' | 'Manuel',
+    tetikleyici: 'Manuel',
     stokTakip: 'Var' as 'Var' | 'Yok',
     birimTuketimBirim: 'adet',
     birimTuketimMiktar: 1,
@@ -227,12 +227,7 @@ export default function MalzemelerPage() {
       }
 
       const tetikleyiciVal = getVal('tetikleyici')
-      let tetikleyici: 'Fiş sayısı' | 'Satış adeti' | 'Manuel' = 'Manuel'
-      if (tetikleyiciVal.toLowerCase().includes('fiş') || tetikleyiciVal.toLowerCase().includes('fis')) {
-        tetikleyici = 'Fiş sayısı'
-      } else if (tetikleyiciVal.toLowerCase().includes('satış') || tetikleyiciVal.toLowerCase().includes('satis')) {
-        tetikleyici = 'Satış adeti'
-      }
+      const tetikleyici = tetikleyiciVal || 'Manuel'
 
       const stokTakipVal = getVal('stok_takip')
       const stokTakip: 'Var' | 'Yok' = stokTakipVal.toLowerCase() === 'yok' ? 'Yok' : 'Var'
@@ -601,10 +596,12 @@ export default function MalzemelerPage() {
                     <label className="block text-xs font-medium text-[hsl(var(--muted-foreground))] mb-1">Tetikleyici</label>
                     <select
                       value={formData.tetikleyici}
-                      onChange={(e) => setFormData({ ...formData, tetikleyici: e.target.value as 'Fiş sayısı' | 'Satış adeti' | 'Manuel' })}
+                      onChange={(e) => setFormData({ ...formData, tetikleyici: e.target.value })}
                       className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] text-sm focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]"
                     >
                       <option value="Manuel">Manuel</option>
+                      <option value="Satış">Satış</option>
+                      <option value="Kampanya/Fiyat">Kampanya/Fiyat</option>
                       <option value="Fiş sayısı">Fiş sayısı</option>
                       <option value="Satış adeti">Satış adeti</option>
                     </select>
