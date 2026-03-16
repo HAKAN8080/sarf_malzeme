@@ -191,6 +191,10 @@ interface StoreContextType {
   addStokSatis: (stokSatis: Omit<StokSatis, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
   updateStokSatis: (id: string, stokSatis: Partial<StokSatis>) => Promise<void>
   deleteStokSatis: (id: string) => Promise<void>
+  bulkUpsertStokSatis: (
+    records: Omit<StokSatis, 'id' | 'createdAt' | 'updatedAt'>[],
+    onProgress?: (processed: number, total: number) => void
+  ) => Promise<{ inserted: number; updated: number; errors: number }>
 
   // Cluster Ayar actions
   updateClusterAyar: (cluster: string, yolSuresi: number) => Promise<void>
@@ -407,6 +411,23 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Bulk UPSERT StokSatis (varsa güncelle, yoksa ekle)
+  const bulkUpsertStokSatis = async (
+    records: Omit<StokSatis, 'id' | 'createdAt' | 'updatedAt'>[],
+    onProgress?: (processed: number, total: number) => void
+  ) => {
+    try {
+      const result = await firestore.bulkUpsertStokSatis(records, stokSatislar, onProgress)
+      // Refresh data from Firestore after bulk operation
+      const updatedStokSatislar = await firestore.getStokSatislar()
+      setStokSatislar(updatedStokSatislar)
+      return result
+    } catch (error) {
+      console.error('Error bulk upserting stokSatis:', error)
+      throw error
+    }
+  }
+
   // Cluster Ayar actions
   const updateClusterAyar = async (cluster: string, yolSuresi: number) => {
     try {
@@ -487,6 +508,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addStokSatis,
         updateStokSatis,
         deleteStokSatis,
+        bulkUpsertStokSatis,
         updateClusterAyar,
         refreshData,
         login,

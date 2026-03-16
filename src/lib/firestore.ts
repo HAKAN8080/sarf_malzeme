@@ -123,6 +123,69 @@ export const deleteStokSatis = async (id: string): Promise<void> => {
   await deleteDoc(doc(db, COLLECTIONS.STOK_SATISLAR, id))
 }
 
+// Bulk UPSERT stok satis records (varsa güncelle, yoksa ekle)
+export const bulkUpsertStokSatis = async (
+  records: Omit<StokSatis, 'id' | 'createdAt' | 'updatedAt'>[],
+  existingRecords: StokSatis[],
+  onProgress?: (processed: number, total: number) => void
+): Promise<{ inserted: number; updated: number; errors: number }> => {
+  let inserted = 0
+  let updated = 0
+  let errors = 0
+  const total = records.length
+
+  // Mevcut kayıtları key bazlı map'e çevir
+  const existingMap = new Map<string, StokSatis>()
+  for (const record of existingRecords) {
+    const key = `${record.magazaKodu}-${record.malzemeKodu}-${record.yil}-${record.hafta}`
+    existingMap.set(key, record)
+  }
+
+  // Batch işlemleri için 400'lük gruplar (Firestore limiti 500)
+  const BATCH_SIZE = 400
+
+  for (let i = 0; i < records.length; i += BATCH_SIZE) {
+    const batch = writeBatch(db)
+    const chunk = records.slice(i, i + BATCH_SIZE)
+
+    for (const record of chunk) {
+      try {
+        const key = `${record.magazaKodu}-${record.malzemeKodu}-${record.yil}-${record.hafta}`
+        const existing = existingMap.get(key)
+
+        if (existing) {
+          // Güncelle
+          const docRef = doc(db, COLLECTIONS.STOK_SATISLAR, existing.id)
+          batch.update(docRef, {
+            ...record,
+            updatedAt: new Date().toISOString(),
+          })
+          updated++
+        } else {
+          // Yeni ekle
+          const docRef = doc(collection(db, COLLECTIONS.STOK_SATISLAR))
+          batch.set(docRef, {
+            ...record,
+            createdAt: new Date().toISOString(),
+            updatedAt: new Date().toISOString(),
+          })
+          inserted++
+        }
+      } catch {
+        errors++
+      }
+    }
+
+    await batch.commit()
+
+    if (onProgress) {
+      onProgress(Math.min(i + BATCH_SIZE, total), total)
+    }
+  }
+
+  return { inserted, updated, errors }
+}
+
 // Bulk add stok satis records
 export const bulkAddStokSatis = async (records: Omit<StokSatis, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<number> => {
   const batch = writeBatch(db)

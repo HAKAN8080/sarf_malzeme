@@ -19,7 +19,7 @@ import { useStore } from '@/lib/store'
 import type { StokSatis } from '@/lib/types'
 
 export default function StokSatisPage() {
-  const { stokSatislar, addStokSatis, updateStokSatis, deleteStokSatis, magazalar, malzemeler } = useStore()
+  const { stokSatislar, addStokSatis, updateStokSatis, deleteStokSatis, bulkUpsertStokSatis, magazalar, malzemeler } = useStore()
 
   // Mağaza ve Malzeme eşleşme kontrolü
   const magazaKodlari = useMemo(() => new Set(magazalar.map(m => m.magazaKodu)), [magazalar])
@@ -35,7 +35,9 @@ export default function StokSatisPage() {
   const [editingItem, setEditingItem] = useState<StokSatis | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [showImportModal, setShowImportModal] = useState(false)
-  const [importResult, setImportResult] = useState<{ success: number; error: number } | null>(null)
+  const [importResult, setImportResult] = useState<{ inserted: number; updated: number; errors: number } | null>(null)
+  const [importProgress, setImportProgress] = useState<{ processed: number; total: number } | null>(null)
+  const [isImporting, setIsImporting] = useState(false)
   const fileInputRef = useRef<HTMLInputElement>(null)
 
   // Form state
@@ -224,10 +226,10 @@ export default function StokSatisPage() {
     reader.readAsText(file, 'UTF-8')
   }
 
-  const parseCSV = (text: string) => {
+  const parseCSV = async (text: string) => {
     const lines = text.split('\n').filter(line => line.trim())
     if (lines.length < 2) {
-      setImportResult({ success: 0, error: 1 })
+      setImportResult({ inserted: 0, updated: 0, errors: 1 })
       return
     }
 
@@ -245,8 +247,6 @@ export default function StokSatisPage() {
     }
 
     const headers = lines[headerIndex].split(delimiter).map(h => h.replace(/"/g, '').trim().toLowerCase())
-    let success = 0
-    let error = 0
 
     // Türkçe ondalık formatını düzelt (0,5 -> 0.5)
     const parseNumber = (val: string): number => {
@@ -255,6 +255,10 @@ export default function StokSatisPage() {
       const normalized = val.replace(',', '.')
       return parseFloat(normalized) || 0
     }
+
+    // Tüm kayıtları parse et
+    const records: Omit<StokSatis, 'id' | 'createdAt' | 'updatedAt'>[] = []
+    let parseErrors = 0
 
     for (let i = headerIndex + 1; i < lines.length; i++) {
       try {
@@ -270,16 +274,16 @@ export default function StokSatisPage() {
         const malzemeKodu = getValue('malzeme_kodu')
         const malzemeAdi = getValue('malzeme_adi')
 
-        if (!magazaKodu || !magazaAdi || !malzemeKodu || !malzemeAdi) {
-          error++
+        if (!magazaKodu || !malzemeKodu) {
+          parseErrors++
           continue
         }
 
-        addStokSatis({
+        records.push({
           magazaKodu,
-          magazaAdi,
+          magazaAdi: magazaAdi || magazaKodu,
           malzemeKodu,
-          malzemeAdi,
+          malzemeAdi: malzemeAdi || malzemeKodu,
           yil: parseInt(getValue('yil')) || new Date().getFullYear(),
           ay: parseInt(getValue('ay')) || 1,
           hafta: parseInt(getValue('hafta')) || 1,
@@ -292,15 +296,39 @@ export default function StokSatisPage() {
           brutKarOrani: parseNumber(getValue('brut_kar_orani')),
           stokTutar: parseNumber(getValue('stok_tutar')),
         })
-        success++
       } catch {
-        error++
+        parseErrors++
       }
     }
 
-    setImportResult({ success, error })
-    if (fileInputRef.current) {
-      fileInputRef.current.value = ''
+    if (records.length === 0) {
+      setImportResult({ inserted: 0, updated: 0, errors: parseErrors })
+      return
+    }
+
+    // Bulk upsert işlemi
+    setIsImporting(true)
+    setImportProgress({ processed: 0, total: records.length })
+
+    try {
+      const result = await bulkUpsertStokSatis(records, (processed, total) => {
+        setImportProgress({ processed, total })
+      })
+
+      setImportResult({
+        inserted: result.inserted,
+        updated: result.updated,
+        errors: result.errors + parseErrors,
+      })
+    } catch (error) {
+      console.error('Import error:', error)
+      setImportResult({ inserted: 0, updated: 0, errors: records.length + parseErrors })
+    } finally {
+      setIsImporting(false)
+      setImportProgress(null)
+      if (fileInputRef.current) {
+        fileInputRef.current.value = ''
+      }
     }
   }
 
@@ -722,22 +750,56 @@ export default function StokSatisPage() {
         <div className="fixed inset-0 bg-black/50 flex items-center justify-center z-50 p-4">
           <div className="bg-[hsl(var(--card))] rounded-2xl w-full max-w-md">
             <div className="p-6 border-b border-[hsl(var(--border))] flex items-center justify-between">
-              <h2 className="text-lg font-semibold text-[hsl(var(--foreground))]">CSV Yükle</h2>
-              <button onClick={() => { setShowImportModal(false); setImportResult(null) }} className="p-2 hover:bg-[hsl(var(--accent))] rounded-lg">
+              <h2 className="text-lg font-semibold text-[hsl(var(--foreground))]">CSV Yükle (UPSERT)</h2>
+              <button onClick={() => { setShowImportModal(false); setImportResult(null) }} className="p-2 hover:bg-[hsl(var(--accent))] rounded-lg" disabled={isImporting}>
                 <X className="h-5 w-5" />
               </button>
             </div>
             <div className="p-6 space-y-4">
-              {importResult ? (
+              {isImporting && importProgress ? (
                 <div className="space-y-4">
-                  <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/10">
-                    <CheckCircle className="h-5 w-5 text-green-500" />
-                    <span className="text-sm text-green-700 dark:text-green-400">{importResult.success} kayıt başarıyla eklendi</span>
+                  <div className="text-center">
+                    <div className="text-lg font-semibold text-[hsl(var(--foreground))]">
+                      İçe aktarılıyor...
+                    </div>
+                    <div className="text-sm text-[hsl(var(--muted-foreground))] mt-1">
+                      {importProgress.processed.toLocaleString('tr-TR')} / {importProgress.total.toLocaleString('tr-TR')} kayıt
+                    </div>
                   </div>
-                  {importResult.error > 0 && (
+                  <div className="w-full bg-[hsl(var(--muted))] rounded-full h-3">
+                    <div
+                      className="bg-[hsl(var(--primary))] h-3 rounded-full transition-all duration-300"
+                      style={{ width: `${(importProgress.processed / importProgress.total) * 100}%` }}
+                    />
+                  </div>
+                  <div className="text-center text-sm text-[hsl(var(--muted-foreground))]">
+                    %{Math.round((importProgress.processed / importProgress.total) * 100)}
+                  </div>
+                </div>
+              ) : importResult ? (
+                <div className="space-y-4">
+                  {importResult.inserted > 0 && (
+                    <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/10">
+                      <CheckCircle className="h-5 w-5 text-green-500" />
+                      <span className="text-sm text-green-700 dark:text-green-400">
+                        {importResult.inserted.toLocaleString('tr-TR')} yeni kayıt eklendi
+                      </span>
+                    </div>
+                  )}
+                  {importResult.updated > 0 && (
+                    <div className="flex items-center gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/10">
+                      <CheckCircle className="h-5 w-5 text-blue-500" />
+                      <span className="text-sm text-blue-700 dark:text-blue-400">
+                        {importResult.updated.toLocaleString('tr-TR')} kayıt güncellendi
+                      </span>
+                    </div>
+                  )}
+                  {importResult.errors > 0 && (
                     <div className="flex items-center gap-3 p-4 rounded-lg bg-red-50 dark:bg-red-900/10">
                       <AlertCircle className="h-5 w-5 text-red-500" />
-                      <span className="text-sm text-red-700 dark:text-red-400">{importResult.error} kayıt eklenemedi</span>
+                      <span className="text-sm text-red-700 dark:text-red-400">
+                        {importResult.errors.toLocaleString('tr-TR')} kayıt işlenemedi
+                      </span>
                     </div>
                   )}
                   <button
@@ -749,8 +811,11 @@ export default function StokSatisPage() {
                 </div>
               ) : (
                 <>
+                  <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 text-sm text-blue-700 dark:text-blue-400">
+                    <strong>UPSERT Modu:</strong> Aynı mağaza + malzeme + yıl + hafta varsa günceller, yoksa yeni ekler.
+                  </div>
                   <p className="text-sm text-[hsl(var(--muted-foreground))]">
-                    CSV dosyası yükleyerek toplu veri ekleyebilirsiniz.
+                    CSV dosyası yükleyerek toplu veri ekleyebilir veya güncelleyebilirsiniz.
                   </p>
                   <button
                     onClick={downloadExampleCSV}
