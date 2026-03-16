@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import type { Malzeme, Magaza, StokSatis, StokHareket, Kullanici, Kategori, ClusterAyar } from './types'
 
 // Storage version - increment this to reset data on structure change
-const STORAGE_VERSION = '8'
+const STORAGE_VERSION = '9'
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -29,9 +29,9 @@ const DEMO_KATEGORILER: Kategori[] = [
 ]
 
 const DEMO_MAGAZALAR: Magaza[] = [
-  { id: '1', magazaKodu: 'M001', magazaAdi: 'Merkez Mağaza', cluster: 'Top1', sehir: 'İstanbul', bolge: 'Avrupa', bolgeMuduru: 'Ahmet Yılmaz', kapasiteAdet: 500, m2: 250, yolSuresi: 3, oncelik: 1, ortalamaFisSayisi: 1250, fbu: 3.2, fbs: 285, satisAdet: 4000, aktif: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '2', magazaKodu: 'M002', magazaAdi: 'Kadıköy Şube', cluster: 'Top1', sehir: 'İstanbul', bolge: 'Anadolu', bolgeMuduru: 'Mehmet Demir', kapasiteAdet: 300, m2: 180, yolSuresi: 3, oncelik: 2, ortalamaFisSayisi: 850, fbu: 2.8, fbs: 220, satisAdet: 2380, aktif: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '3', magazaKodu: 'M003', magazaAdi: 'Ankara Şube', cluster: 'Top2', sehir: 'Ankara', bolge: 'İç Anadolu', bolgeMuduru: 'Ayşe Kaya', kapasiteAdet: 400, m2: 200, yolSuresi: 3, oncelik: 1, ortalamaFisSayisi: 980, fbu: 3.0, fbs: 250, satisAdet: 2940, aktif: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: '1', magazaKodu: '1001', magazaAdi: 'Deneme Store', cluster: 'Top1', sehir: 'İstanbul', bolge: 'Avrupa', bolgeMuduru: 'Ahmet Yılmaz', kapasiteAdet: 500, m2: 250, yolSuresi: 3, oncelik: 1, ortalamaFisSayisi: 1250, fbu: 3.2, fbs: 285, satisAdet: 4000, aktif: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: '2', magazaKodu: '1002', magazaAdi: 'Kadıköy Şube', cluster: 'Top1', sehir: 'İstanbul', bolge: 'Anadolu', bolgeMuduru: 'Mehmet Demir', kapasiteAdet: 300, m2: 180, yolSuresi: 3, oncelik: 2, ortalamaFisSayisi: 850, fbu: 2.8, fbs: 220, satisAdet: 2380, aktif: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+  { id: '3', magazaKodu: '1003', magazaAdi: 'Ankara Şube', cluster: 'Top2', sehir: 'Ankara', bolge: 'İç Anadolu', bolgeMuduru: 'Ayşe Kaya', kapasiteAdet: 400, m2: 200, yolSuresi: 3, oncelik: 1, ortalamaFisSayisi: 980, fbu: 3.0, fbs: 250, satisAdet: 2940, aktif: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
 ]
 
 const DEMO_CLUSTER_AYARLAR: ClusterAyar[] = [
