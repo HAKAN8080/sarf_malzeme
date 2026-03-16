@@ -231,13 +231,34 @@ export default function StokSatisPage() {
       return
     }
 
-    const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase())
+    // Ayraç tespiti: noktalı virgül mü virgül mü?
+    const firstDataLine = lines[0]
+    const delimiter = firstDataLine.includes(';') ? ';' : ','
+
+    // Header satırını bul (magaza_kodu içeren satır)
+    let headerIndex = 0
+    for (let i = 0; i < Math.min(5, lines.length); i++) {
+      if (lines[i].toLowerCase().includes('magaza_kodu')) {
+        headerIndex = i
+        break
+      }
+    }
+
+    const headers = lines[headerIndex].split(delimiter).map(h => h.replace(/"/g, '').trim().toLowerCase())
     let success = 0
     let error = 0
 
-    for (let i = 1; i < lines.length; i++) {
+    // Türkçe ondalık formatını düzelt (0,5 -> 0.5)
+    const parseNumber = (val: string): number => {
+      if (!val) return 0
+      // Virgülü noktaya çevir
+      const normalized = val.replace(',', '.')
+      return parseFloat(normalized) || 0
+    }
+
+    for (let i = headerIndex + 1; i < lines.length; i++) {
       try {
-        const values = lines[i].match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map(v => v.replace(/"/g, '').trim()) || []
+        const values = lines[i].split(delimiter).map(v => v.replace(/"/g, '').trim())
 
         const getValue = (key: string) => {
           const index = headers.indexOf(key)
@@ -262,14 +283,14 @@ export default function StokSatisPage() {
           yil: parseInt(getValue('yil')) || new Date().getFullYear(),
           ay: parseInt(getValue('ay')) || 1,
           hafta: parseInt(getValue('hafta')) || 1,
-          stok: parseFloat(getValue('stok')) || 0,
-          satis: parseFloat(getValue('satis')) || 0,
-          ypiSuresi: parseFloat(getValue('yol')) || 0,
-          acikSiparis: parseFloat(getValue('acik_siparis')) || 0,
-          ciro: parseFloat(getValue('ciro')) || 0,
-          smm: parseFloat(getValue('smm')) || 0,
-          brutKarOrani: parseFloat(getValue('brut_kar_orani')) || 0,
-          stokTutar: parseFloat(getValue('stok_tutar')) || 0,
+          stok: parseNumber(getValue('stok')),
+          satis: parseNumber(getValue('satis')),
+          ypiSuresi: parseNumber(getValue('yol')),
+          acikSiparis: parseNumber(getValue('acik_siparis')),
+          ciro: parseNumber(getValue('ciro')),
+          smm: parseNumber(getValue('smm')),
+          brutKarOrani: parseNumber(getValue('brut_kar_orani')),
+          stokTutar: parseNumber(getValue('stok_tutar')),
         })
         success++
       } catch {

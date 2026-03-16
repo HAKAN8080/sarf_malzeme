@@ -90,7 +90,11 @@ export default function IhtiyacPage() {
       ? aktivMalzemeler.filter(m => m.id === selectedMalzeme)
       : aktivMalzemeler
 
-    const satisTetikmliMalzemeler = targetMalzemeler.filter(m => m.tetikleyici === 'Satış adeti')
+    // Satış tetikleyicili malzemeleri filtrele (Satış, Satış adeti, vb.)
+    const satisTetikmliMalzemeler = targetMalzemeler.filter(m =>
+      m.tetikleyici?.toLowerCase().includes('satış') ||
+      m.tetikleyici?.toLowerCase().includes('satis')
+    )
 
     for (const magaza of targetMagazalar) {
       for (const malzeme of satisTetikmliMalzemeler) {
