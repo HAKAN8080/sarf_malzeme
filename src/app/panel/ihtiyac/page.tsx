@@ -16,7 +16,7 @@ import {
   Package,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import type { IhtiyacSonuc, UretimOzeti } from '@/lib/types'
+import type { IhtiyacSonuc, UretimOzeti, StokSatis } from '@/lib/types'
 
 export default function IhtiyacPage() {
   const { malzemeler, magazalar, stokSatislar } = useStore()
@@ -51,31 +51,44 @@ export default function IhtiyacPage() {
 
   const { yil: currentYil, hafta: currentHafta } = getLatestWeekFromData()
 
-  // Hafta bazlı satış verisi getir
+  // Performans için Map-based index oluştur (O(1) lookup)
+  const stokSatisIndex = useMemo(() => {
+    const index = new Map<string, StokSatis>()
+    const latestIndex = new Map<string, StokSatis>()
+
+    for (const s of stokSatislar) {
+      // Hafta bazlı index (mağaza-malzeme-yıl-hafta)
+      const weekKey = `${s.magazaKodu}-${s.malzemeKodu}-${s.yil}-${s.hafta}`
+      index.set(weekKey, s)
+
+      // En son kayıt index (mağaza-malzeme)
+      const latestKey = `${s.magazaKodu}-${s.malzemeKodu}`
+      const existing = latestIndex.get(latestKey)
+      if (!existing || s.yil > existing.yil || (s.yil === existing.yil && s.hafta > existing.hafta)) {
+        latestIndex.set(latestKey, s)
+      }
+    }
+
+    return { byWeek: index, latest: latestIndex }
+  }, [stokSatislar])
+
+  // Hafta bazlı satış verisi getir (O(1) Map lookup)
   const getSalesForWeek = (magazaKodu: string, malzemeKodu: string, yil: number, hafta: number): number | null => {
-    const record = stokSatislar.find(s =>
-      s.magazaKodu === magazaKodu &&
-      s.malzemeKodu === malzemeKodu &&
-      s.yil === yil &&
-      s.hafta === hafta
-    )
+    const key = `${magazaKodu}-${malzemeKodu}-${yil}-${hafta}`
+    const record = stokSatisIndex.byWeek.get(key)
     return record ? record.satis : null
   }
 
-  // Son stok bilgisini getir
+  // Son stok bilgisini getir (O(1) Map lookup)
   const getLatestStockInfo = (magazaKodu: string, malzemeKodu: string): { stok: number; acikSiparis: number; ypiSuresi: number } => {
-    const records = stokSatislar
-      .filter(s => s.magazaKodu === magazaKodu && s.malzemeKodu === malzemeKodu)
-      .sort((a, b) => {
-        if (a.yil !== b.yil) return b.yil - a.yil
-        return b.hafta - a.hafta
-      })
+    const key = `${magazaKodu}-${malzemeKodu}`
+    const record = stokSatisIndex.latest.get(key)
 
-    if (records.length > 0) {
+    if (record) {
       return {
-        stok: records[0].stok,
-        acikSiparis: records[0].acikSiparis,
-        ypiSuresi: records[0].ypiSuresi
+        stok: record.stok,
+        acikSiparis: record.acikSiparis,
+        ypiSuresi: record.ypiSuresi
       }
     }
     return { stok: 0, acikSiparis: 0, ypiSuresi: 0 }

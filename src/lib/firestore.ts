@@ -185,6 +185,9 @@ const createStokSatisId = (magazaKodu: string, malzemeKodu: string, yil: number,
   return `${magazaKodu}_${malzemeKodu}_${yil}_${hafta}`
 }
 
+// Yardımcı: Belirli süre bekle
+const sleep = (ms: number) => new Promise(resolve => setTimeout(resolve, ms))
+
 // Bulk UPSERT stok satis records (varsa güncelle, yoksa ekle)
 // Deterministic ID kullanarak çok hızlı çalışır - mevcut kayıtları indirmeye gerek yok
 export const bulkUpsertStokSatis = async (
@@ -197,8 +200,10 @@ export const bulkUpsertStokSatis = async (
   const total = records.length
   const now = new Date().toISOString()
 
-  // Batch işlemleri için 450'lik gruplar (Firestore limiti 500)
-  const BATCH_SIZE = 450
+  // Batch işlemleri için 400'lük gruplar (güvenli limit)
+  const BATCH_SIZE = 400
+  // Rate limiting için batch'ler arası bekleme (ms)
+  const DELAY_BETWEEN_BATCHES = 100
 
   for (let i = 0; i < records.length; i += BATCH_SIZE) {
     const batch = writeBatch(db)
@@ -222,10 +227,32 @@ export const bulkUpsertStokSatis = async (
       }
     }
 
-    await batch.commit()
+    // Retry logic for batch commit
+    let retries = 3
+    while (retries > 0) {
+      try {
+        await batch.commit()
+        break
+      } catch (error) {
+        retries--
+        if (retries === 0) {
+          console.error('Batch commit failed after retries:', error)
+          errors += chunk.length
+          processed -= chunk.length
+        } else {
+          console.warn(`Batch commit failed, retrying... (${retries} left)`)
+          await sleep(1000) // 1 saniye bekle ve tekrar dene
+        }
+      }
+    }
 
     if (onProgress) {
       onProgress(Math.min(i + BATCH_SIZE, total), total)
+    }
+
+    // Rate limiting - batch'ler arası kısa bekleme
+    if (i + BATCH_SIZE < records.length) {
+      await sleep(DELAY_BETWEEN_BATCHES)
     }
   }
 
