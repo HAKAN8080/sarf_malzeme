@@ -23,6 +23,7 @@ export default function IhtiyacPage() {
   const [selectedMagaza, setSelectedMagaza] = useState('')
   const [selectedMalzeme, setSelectedMalzeme] = useState('')
   const [guvenlikKatsayisi, setGuvenlikKatsayisi] = useState(1.0)
+  const [durumFiltresi, setDurumFiltresi] = useState<'hepsi' | 'sevkiyat_var' | 'sevkiyat_ihtiyac' | 'kritik' | 'uyari'>('hepsi')
   const [activeTab, setActiveTab] = useState<'magaza' | 'uretim'>('magaza')
 
   // Aktif mağaza ve malzemeler
@@ -308,6 +309,24 @@ export default function IhtiyacPage() {
     })
   }, [aktivMagazalar, aktivMalzemeler, stokSatislar, selectedMagaza, selectedMalzeme, guvenlikKatsayisi, currentYil, currentHafta])
 
+  // Durum filtresine göre filtrele
+  const filteredIhtiyaclar = useMemo(() => {
+    return ihtiyaclar.filter(i => {
+      switch (durumFiltresi) {
+        case 'sevkiyat_var':
+          return i.sevkiyatOnerisi > 0
+        case 'sevkiyat_ihtiyac':
+          return i.sevkiyatIhtiyaci > 0
+        case 'kritik':
+          return i.durum === 'kritik'
+        case 'uyari':
+          return i.durum === 'uyari' || i.durum === 'kritik'
+        default:
+          return true
+      }
+    })
+  }, [ihtiyaclar, durumFiltresi])
+
   // Ürün bazlı üretim özeti
   const uretimOzetleri = useMemo<UretimOzeti[]>(() => {
     const ozetMap: Record<string, UretimOzeti> = {}
@@ -387,7 +406,7 @@ export default function IhtiyacPage() {
       'Tedarik Süresi', 'Projeksiyon', 'Üretim İhtiyacı', 'Üretim Önerisi',
       'Durum', 'Metod'
     ]
-    const rows = ihtiyaclar.map(i => [
+    const rows = filteredIhtiyaclar.map(i => [
       i.magazaKodu, i.magazaAdi, i.malzemeKodu, i.malzemeAdi,
       i.tahminSatis.toString(), i.gunlukTahminSatis.toString(), i.yoyKatsayi.toString(),
       i.mevcutStok.toString(), i.yoldakiMiktar.toString(), i.depoStok.toString(), i.guvenlikStok.toString(),
@@ -466,7 +485,7 @@ export default function IhtiyacPage() {
         </div>
         <button
           onClick={activeTab === 'magaza' ? exportMagazaCSV : exportUretimCSV}
-          disabled={activeTab === 'magaza' ? ihtiyaclar.length === 0 : uretimOzetleri.length === 0}
+          disabled={activeTab === 'magaza' ? filteredIhtiyaclar.length === 0 : uretimOzetleri.length === 0}
           className="flex items-center gap-2 px-4 py-2 border border-[hsl(var(--border))] text-[hsl(var(--foreground))] rounded-lg hover:bg-[hsl(var(--accent))] transition-colors disabled:opacity-50"
         >
           <Download className="h-4 w-4" />
@@ -534,7 +553,7 @@ export default function IhtiyacPage() {
 
       {/* Filters */}
       <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-4 mb-6">
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
           <div>
             <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">Mağaza</label>
             <div className="relative">
@@ -565,6 +584,20 @@ export default function IhtiyacPage() {
             </select>
           </div>
           <div>
+            <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">Durum</label>
+            <select
+              value={durumFiltresi}
+              onChange={(e) => setDurumFiltresi(e.target.value as typeof durumFiltresi)}
+              className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))] appearance-none"
+            >
+              <option value="hepsi">Tümü</option>
+              <option value="sevkiyat_var">Sevkiyat Önerisi Var</option>
+              <option value="sevkiyat_ihtiyac">Sevkiyat İhtiyacı Var</option>
+              <option value="kritik">Sadece Kritik</option>
+              <option value="uyari">Kritik + Uyarı</option>
+            </select>
+          </div>
+          <div>
             <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">Güvenlik Payı</label>
             <select
               value={guvenlikKatsayisi}
@@ -592,7 +625,7 @@ export default function IhtiyacPage() {
           }`}
         >
           <Truck className="h-4 w-4" />
-          Mağaza Sevkiyat ({ihtiyaclar.length})
+          Mağaza Sevkiyat ({filteredIhtiyaclar.length})
         </button>
         <button
           onClick={() => setActiveTab('uretim')}
@@ -631,7 +664,7 @@ export default function IhtiyacPage() {
                 </tr>
               </thead>
               <tbody>
-                {ihtiyaclar.length === 0 ? (
+                {filteredIhtiyaclar.length === 0 ? (
                   <tr>
                     <td colSpan={14} className="px-4 py-12 text-center text-[hsl(var(--muted-foreground))]">
                       <BarChart3 className="h-8 w-8 mx-auto mb-2 opacity-50" />
@@ -639,7 +672,7 @@ export default function IhtiyacPage() {
                     </td>
                   </tr>
                 ) : (
-                  ihtiyaclar.map((i) => (
+                  filteredIhtiyaclar.map((i) => (
                     <tr
                       key={`${i.magazaKodu}-${i.malzemeKodu}`}
                       className={`border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] ${
