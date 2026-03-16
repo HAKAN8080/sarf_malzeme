@@ -778,19 +778,11 @@ export default function StokSatisPage() {
                 </div>
               ) : importResult ? (
                 <div className="space-y-4">
-                  {importResult.inserted > 0 && (
+                  {(importResult.inserted > 0 || importResult.updated > 0) && (
                     <div className="flex items-center gap-3 p-4 rounded-lg bg-green-50 dark:bg-green-900/10">
                       <CheckCircle className="h-5 w-5 text-green-500" />
                       <span className="text-sm text-green-700 dark:text-green-400">
-                        {importResult.inserted.toLocaleString('tr-TR')} yeni kayıt eklendi
-                      </span>
-                    </div>
-                  )}
-                  {importResult.updated > 0 && (
-                    <div className="flex items-center gap-3 p-4 rounded-lg bg-blue-50 dark:bg-blue-900/10">
-                      <CheckCircle className="h-5 w-5 text-blue-500" />
-                      <span className="text-sm text-blue-700 dark:text-blue-400">
-                        {importResult.updated.toLocaleString('tr-TR')} kayıt güncellendi
+                        {(importResult.inserted + importResult.updated).toLocaleString('tr-TR')} kayıt işlendi (varsa güncellendi, yoksa eklendi)
                       </span>
                     </div>
                   )}

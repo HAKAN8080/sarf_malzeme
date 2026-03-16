@@ -412,12 +412,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }
 
   // Bulk UPSERT StokSatis (varsa güncelle, yoksa ekle)
+  // Deterministic ID kullanır - çok hızlı
   const bulkUpsertStokSatis = async (
     records: Omit<StokSatis, 'id' | 'createdAt' | 'updatedAt'>[],
     onProgress?: (processed: number, total: number) => void
   ) => {
     try {
-      const result = await firestore.bulkUpsertStokSatis(records, stokSatislar, onProgress)
+      const result = await firestore.bulkUpsertStokSatis(records, [], onProgress)
       // Refresh data from Firestore after bulk operation
       const updatedStokSatislar = await firestore.getStokSatislar()
       setStokSatislar(updatedStokSatislar)
