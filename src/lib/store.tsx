@@ -4,7 +4,7 @@ import React, { createContext, useContext, useEffect, useState, ReactNode } from
 import type { Malzeme, Magaza, StokSatis, StokHareket, Kullanici, Kategori, ClusterAyar } from './types'
 
 // Storage version - increment this to reset data on structure change
-const STORAGE_VERSION = '9'
+const STORAGE_VERSION = '10'
 
 // Storage keys
 const STORAGE_KEYS = {
@@ -613,7 +613,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addMalzeme = (malzeme: Omit<Malzeme, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newMalzeme: Malzeme = {
       ...malzeme,
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -636,7 +636,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addMagaza = (magaza: Omit<Magaza, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newMagaza: Magaza = {
       ...magaza,
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
@@ -659,7 +659,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const addStokSatis = (stokSatis: Omit<StokSatis, 'id' | 'createdAt' | 'updatedAt'>) => {
     const newStokSatis: StokSatis = {
       ...stokSatis,
-      id: Date.now().toString(),
+      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
       createdAt: new Date().toISOString(),
       updatedAt: new Date().toISOString(),
     }
