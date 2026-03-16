@@ -1,37 +1,25 @@
 'use client'
 
-import React, { createContext, useContext, useEffect, useState, ReactNode } from 'react'
+import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
 import type { Malzeme, Magaza, StokSatis, StokHareket, Kullanici, Kategori, ClusterAyar } from './types'
+import * as firestore from './firestore'
 
-// Storage version - increment this to reset data on structure change
-const STORAGE_VERSION = '10'
+// Session storage key (still using localStorage for session)
+const SESSION_KEY = 'sarf_session'
 
-// Storage keys
-const STORAGE_KEYS = {
-  version: 'sarf_version',
-  malzemeler: 'sarf_malzemeler',
-  magazalar: 'sarf_magazalar',
-  stokSatislar: 'sarf_stok_satislar',
-  hareketler: 'sarf_hareketler',
-  kullanicilar: 'sarf_kullanicilar',
-  kategoriler: 'sarf_kategoriler',
-  clusterAyarlar: 'sarf_cluster_ayarlar',
-  session: 'sarf_session',
-}
-
-// Demo data
-const DEMO_KATEGORILER: Kategori[] = [
-  { id: '1', ad: 'Temizlik', renk: '#3B82F6' },
-  { id: '2', ad: 'Ambalaj', renk: '#10B981' },
-  { id: '3', ad: 'Kırtasiye', renk: '#F59E0B' },
-  { id: '4', ad: 'Gıda', renk: '#EF4444' },
-  { id: '5', ad: 'Teknik', renk: '#8B5CF6' },
+// Demo data for initial setup
+const DEMO_KATEGORILER: Omit<Kategori, 'id'>[] = [
+  { ad: 'Temizlik', renk: '#3B82F6' },
+  { ad: 'Ambalaj', renk: '#10B981' },
+  { ad: 'Kırtasiye', renk: '#F59E0B' },
+  { ad: 'Gıda', renk: '#EF4444' },
+  { ad: 'Teknik', renk: '#8B5CF6' },
 ]
 
-const DEMO_MAGAZALAR: Magaza[] = [
-  { id: '1', magazaKodu: '1001', magazaAdi: 'Deneme Store', cluster: 'Top1', sehir: 'İstanbul', bolge: 'Avrupa', bolgeMuduru: 'Ahmet Yılmaz', kapasiteAdet: 500, m2: 250, yolSuresi: 3, oncelik: 1, ortalamaFisSayisi: 1250, fbu: 3.2, fbs: 285, satisAdet: 4000, aktif: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '2', magazaKodu: '1002', magazaAdi: 'Kadıköy Şube', cluster: 'Top1', sehir: 'İstanbul', bolge: 'Anadolu', bolgeMuduru: 'Mehmet Demir', kapasiteAdet: 300, m2: 180, yolSuresi: 3, oncelik: 2, ortalamaFisSayisi: 850, fbu: 2.8, fbs: 220, satisAdet: 2380, aktif: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
-  { id: '3', magazaKodu: '1003', magazaAdi: 'Ankara Şube', cluster: 'Top2', sehir: 'Ankara', bolge: 'İç Anadolu', bolgeMuduru: 'Ayşe Kaya', kapasiteAdet: 400, m2: 200, yolSuresi: 3, oncelik: 1, ortalamaFisSayisi: 980, fbu: 3.0, fbs: 250, satisAdet: 2940, aktif: true, createdAt: new Date().toISOString(), updatedAt: new Date().toISOString() },
+const DEMO_MAGAZALAR: Omit<Magaza, 'id' | 'createdAt' | 'updatedAt'>[] = [
+  { magazaKodu: '1001', magazaAdi: 'Deneme Store', cluster: 'Top1', sehir: 'İstanbul', bolge: 'Avrupa', bolgeMuduru: 'Ahmet Yılmaz', kapasiteAdet: 500, m2: 250, yolSuresi: 3, oncelik: 1, ortalamaFisSayisi: 1250, fbu: 3.2, fbs: 285, satisAdet: 4000, aktif: true },
+  { magazaKodu: '1002', magazaAdi: 'Kadıköy Şube', cluster: 'Top1', sehir: 'İstanbul', bolge: 'Anadolu', bolgeMuduru: 'Mehmet Demir', kapasiteAdet: 300, m2: 180, yolSuresi: 3, oncelik: 2, ortalamaFisSayisi: 850, fbu: 2.8, fbs: 220, satisAdet: 2380, aktif: true },
+  { magazaKodu: '1003', magazaAdi: 'Ankara Şube', cluster: 'Top2', sehir: 'Ankara', bolge: 'İç Anadolu', bolgeMuduru: 'Ayşe Kaya', kapasiteAdet: 400, m2: 200, yolSuresi: 3, oncelik: 1, ortalamaFisSayisi: 980, fbu: 3.0, fbs: 250, satisAdet: 2940, aktif: true },
 ]
 
 const DEMO_CLUSTER_AYARLAR: ClusterAyar[] = [
@@ -41,9 +29,8 @@ const DEMO_CLUSTER_AYARLAR: ClusterAyar[] = [
   { cluster: 'Diğer', yolSuresi: 3 },
 ]
 
-const DEMO_MALZEMELER: Malzeme[] = [
+const DEMO_MALZEMELER: Omit<Malzeme, 'id' | 'createdAt' | 'updatedAt'>[] = [
   {
-    id: '10',
     malzemeKodu: '10045564001',
     barkod: '8684230000000',
     ad: 'Kraft Poşet MAVİ (M), 2. Boy',
@@ -66,11 +53,8 @@ const DEMO_MALZEMELER: Malzeme[] = [
     minSiparisMiktari: 50000,
     guvenlikStok: 300,
     aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
   },
   {
-    id: '13',
     malzemeKodu: '60001302',
     barkod: '8684230000000',
     ad: 'YM- Yuvarlak Sticker Kırmızı 5cm',
@@ -93,11 +77,8 @@ const DEMO_MALZEMELER: Malzeme[] = [
     minSiparisMiktari: 100000,
     guvenlikStok: 1000,
     aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
   },
   {
-    id: '16',
     malzemeKodu: '10045546001',
     barkod: '8684230000000',
     ad: 'Kraft Poşet Turuncu (M), 2. Boy',
@@ -120,11 +101,8 @@ const DEMO_MALZEMELER: Malzeme[] = [
     minSiparisMiktari: 50000,
     guvenlikStok: 300,
     aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
   },
   {
-    id: '18',
     malzemeKodu: '10045542001',
     barkod: '8684230000000',
     ad: 'Kraft Poşet MAVİ (L), 3. Boy',
@@ -147,11 +125,8 @@ const DEMO_MALZEMELER: Malzeme[] = [
     minSiparisMiktari: 50000,
     guvenlikStok: 200,
     aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
   },
   {
-    id: '19',
     malzemeKodu: '10045547001',
     barkod: '8684230000000',
     ad: 'Kraft Poşet TURUNCU (L), 3. Boy',
@@ -174,259 +149,12 @@ const DEMO_MALZEMELER: Malzeme[] = [
     minSiparisMiktari: 50000,
     guvenlikStok: 200,
     aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '22',
-    malzemeKodu: '10045544001',
-    barkod: '8684230000000',
-    ad: 'Kraft Poşet TURUNCU (XS), 0.Boy',
-    anaGrup: 'Planlama',
-    subGrup: 'Poşet',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 300,
-    koliIci: 300,
-    ureticiKodu: '200377',
-    ureticiAdi: 'MEHMET TORUN - MAS OFSET',
-    ortalamaTedarikSuresi: 6,
-    ortalamaEkSure: 2,
-    depoStok: 180533,
-    minSevkMiktari: 300,
-    minSiparisMiktari: 50000,
-    guvenlikStok: 200,
-    aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '23',
-    malzemeKodu: '10045482001',
-    barkod: '8684230000000',
-    ad: 'Kraft Poşet Mavi, 0.Boy',
-    anaGrup: 'Planlama',
-    subGrup: 'Poşet',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 300,
-    koliIci: 300,
-    ureticiKodu: '200377',
-    ureticiAdi: 'MEHMET TORUN - MAS OFSET',
-    ortalamaTedarikSuresi: 6,
-    ortalamaEkSure: 2,
-    depoStok: 180475,
-    minSevkMiktari: 200,
-    minSiparisMiktari: 50000,
-    guvenlikStok: 200,
-    aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '25',
-    malzemeKodu: '10045549001',
-    barkod: '8684230000000',
-    ad: 'Kraft Hediye Paketi DÜZ (XS), 0.Boy',
-    anaGrup: 'Planlama',
-    subGrup: 'Hediye Paketi',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 300,
-    koliIci: 300,
-    ureticiKodu: '101009',
-    ureticiAdi: 'MODEL AMBALAJ ÜRÜNLERI SANAYI VE TI',
-    ortalamaTedarikSuresi: 6,
-    ortalamaEkSure: 2,
-    depoStok: 169229,
-    minSevkMiktari: 300,
-    minSiparisMiktari: 50000,
-    guvenlikStok: 100,
-    aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '26',
-    malzemeKodu: '10045543001',
-    barkod: '8684230000000',
-    ad: 'Kraft Poşet MAVİ (XL), 4. Boy',
-    anaGrup: 'Planlama',
-    subGrup: 'Poşet',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 200,
-    koliIci: 200,
-    ureticiKodu: '200377',
-    ureticiAdi: 'MEHMET TORUN - MAS OFSET',
-    ortalamaTedarikSuresi: 6,
-    ortalamaEkSure: 2,
-    depoStok: 168182,
-    minSevkMiktari: 200,
-    minSiparisMiktari: 50000,
-    guvenlikStok: 150,
-    aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '29',
-    malzemeKodu: '10045553001',
-    barkod: '8684230000000',
-    ad: 'Kraft Hediye Paketi DÜZ (XL), 4. Boy',
-    anaGrup: 'Planlama',
-    subGrup: 'Hediye Paketi',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 200,
-    koliIci: 200,
-    ureticiKodu: '101009',
-    ureticiAdi: 'MODEL AMBALAJ ÜRÜNLERI SANAYI VE TI',
-    ortalamaTedarikSuresi: 6,
-    ortalamaEkSure: 2,
-    depoStok: 146888,
-    minSevkMiktari: 200,
-    minSiparisMiktari: 50000,
-    guvenlikStok: 100,
-    aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '30',
-    malzemeKodu: '10045548001',
-    barkod: '8684230000000',
-    ad: 'Kraft Poşet TURUNCU (XL), 4. Boy',
-    anaGrup: 'Planlama',
-    subGrup: 'Poşet',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 200,
-    koliIci: 200,
-    ureticiKodu: '101009',
-    ureticiAdi: 'MODEL AMBALAJ ÜRÜNLERI SANAYI VE TI',
-    ortalamaTedarikSuresi: 6,
-    ortalamaEkSure: 2,
-    depoStok: 146458,
-    minSevkMiktari: 200,
-    minSiparisMiktari: 50000,
-    guvenlikStok: 150,
-    aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '42',
-    malzemeKodu: '10045551001',
-    barkod: '8684230000000',
-    ad: 'Kraft Hediye Paketi Mavi, 2. Boy',
-    anaGrup: 'Planlama',
-    subGrup: 'Hediye Paketi',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 200,
-    koliIci: 200,
-    ureticiKodu: '200377',
-    ureticiAdi: 'MEHMET TORUN - MAS OFSET',
-    ortalamaTedarikSuresi: 6,
-    ortalamaEkSure: 2,
-    depoStok: 75183,
-    minSevkMiktari: 200,
-    minSiparisMiktari: 50000,
-    guvenlikStok: 150,
-    aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '43',
-    malzemeKodu: '10045552001',
-    barkod: '8684230000000',
-    ad: 'Kraft Hediye Paketi DÜZ (L), 3. Boy',
-    anaGrup: 'Planlama',
-    subGrup: 'Hediye Paketi',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 200,
-    koliIci: 200,
-    ureticiKodu: '200377',
-    ureticiAdi: 'MEHMET TORUN - MAS OFSET',
-    ortalamaTedarikSuresi: 6,
-    ortalamaEkSure: 2,
-    depoStok: 64994,
-    minSevkMiktari: 200,
-    minSiparisMiktari: 50000,
-    guvenlikStok: 150,
-    aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
-  },
-  {
-    id: '57',
-    malzemeKodu: '10049315001',
-    barkod: '8684230000000',
-    ad: 'Yaprak Hediye Kağıdı 70x100',
-    anaGrup: 'Planlama',
-    subGrup: 'Hediye Paketi',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 100,
-    koliIci: 100,
-    ureticiKodu: '100981',
-    ureticiAdi: 'DOMINO IDEAS MATBAACILIK VE TICARET',
-    ortalamaTedarikSuresi: 4,
-    ortalamaEkSure: 1,
-    depoStok: 23288,
-    minSevkMiktari: 100,
-    minSiparisMiktari: 5000,
-    guvenlikStok: 100,
-    aktif: true,
-    createdAt: new Date().toISOString(),
-    updatedAt: new Date().toISOString()
   },
 ]
 
-const DEMO_STOK_SATISLAR: StokSatis[] = []
-
-const DEMO_KULLANICILAR: Kullanici[] = [
-  { id: '1', email: 'admin@sarf.com', ad: 'Admin', rol: 'admin', aktif: true, createdAt: new Date().toISOString() },
-  { id: '2', email: 'yonetici@sarf.com', ad: 'Yönetici', rol: 'yonetici', aktif: true, createdAt: new Date().toISOString() },
+const DEMO_KULLANICILAR: Omit<Kullanici, 'id' | 'createdAt'>[] = [
+  { email: 'admin@sarf.com', ad: 'Admin', rol: 'admin', aktif: true },
+  { email: 'yonetici@sarf.com', ad: 'Yönetici', rol: 'yonetici', aktif: true },
 ]
 
 interface Session {
@@ -450,22 +178,25 @@ interface StoreContextType {
   loading: boolean
 
   // Malzeme actions
-  addMalzeme: (malzeme: Omit<Malzeme, 'id' | 'createdAt' | 'updatedAt'>) => void
-  updateMalzeme: (id: string, malzeme: Partial<Malzeme>) => void
-  deleteMalzeme: (id: string) => void
+  addMalzeme: (malzeme: Omit<Malzeme, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
+  updateMalzeme: (id: string, malzeme: Partial<Malzeme>) => Promise<void>
+  deleteMalzeme: (id: string) => Promise<void>
 
   // Magaza actions
-  addMagaza: (magaza: Omit<Magaza, 'id' | 'createdAt' | 'updatedAt'>) => void
-  updateMagaza: (id: string, magaza: Partial<Magaza>) => void
-  deleteMagaza: (id: string) => void
+  addMagaza: (magaza: Omit<Magaza, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
+  updateMagaza: (id: string, magaza: Partial<Magaza>) => Promise<void>
+  deleteMagaza: (id: string) => Promise<void>
 
   // StokSatis actions
-  addStokSatis: (stokSatis: Omit<StokSatis, 'id' | 'createdAt' | 'updatedAt'>) => void
-  updateStokSatis: (id: string, stokSatis: Partial<StokSatis>) => void
-  deleteStokSatis: (id: string) => void
+  addStokSatis: (stokSatis: Omit<StokSatis, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
+  updateStokSatis: (id: string, stokSatis: Partial<StokSatis>) => Promise<void>
+  deleteStokSatis: (id: string) => Promise<void>
 
   // Cluster Ayar actions
-  updateClusterAyar: (cluster: string, yolSuresi: number) => void
+  updateClusterAyar: (cluster: string, yolSuresi: number) => Promise<void>
+
+  // Refresh data from Firestore
+  refreshData: () => Promise<void>
 
   // Auth actions
   login: (email: string, password: string) => boolean
@@ -485,224 +216,229 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
-  // Load data from localStorage on mount
-  useEffect(() => {
-    const loadData = () => {
-      try {
-        // Check version and clear old data if needed
-        const savedVersion = localStorage.getItem(STORAGE_KEYS.version)
-        if (savedVersion !== STORAGE_VERSION) {
-          // Clear all old data
-          Object.values(STORAGE_KEYS).forEach(key => {
-            if (key !== STORAGE_KEYS.version) {
-              localStorage.removeItem(key)
-            }
-          })
-          // Also clear old keys
-          localStorage.removeItem('sarf_stoklar')
-          localStorage.removeItem('sarf_satislar')
-          localStorage.setItem(STORAGE_KEYS.version, STORAGE_VERSION)
-        }
+  // Load data from Firestore on mount
+  const loadData = useCallback(async () => {
+    try {
+      setLoading(true)
 
-        // Load kategoriler
-        const savedKategoriler = localStorage.getItem(STORAGE_KEYS.kategoriler)
-        if (savedKategoriler) {
-          setKategoriler(JSON.parse(savedKategoriler))
-        } else {
-          setKategoriler(DEMO_KATEGORILER)
-          localStorage.setItem(STORAGE_KEYS.kategoriler, JSON.stringify(DEMO_KATEGORILER))
-        }
+      // Check if database is initialized
+      const isInitialized = await firestore.isDatabaseInitialized()
 
-        // Load magazalar
-        const savedMagazalar = localStorage.getItem(STORAGE_KEYS.magazalar)
-        if (savedMagazalar) {
-          setMagazalar(JSON.parse(savedMagazalar))
-        } else {
-          setMagazalar(DEMO_MAGAZALAR)
-          localStorage.setItem(STORAGE_KEYS.magazalar, JSON.stringify(DEMO_MAGAZALAR))
-        }
-
-        // Load malzemeler
-        const savedMalzemeler = localStorage.getItem(STORAGE_KEYS.malzemeler)
-        if (savedMalzemeler) {
-          setMalzemeler(JSON.parse(savedMalzemeler))
-        } else {
-          setMalzemeler(DEMO_MALZEMELER)
-          localStorage.setItem(STORAGE_KEYS.malzemeler, JSON.stringify(DEMO_MALZEMELER))
-        }
-
-        // Load kullanicilar
-        const savedKullanicilar = localStorage.getItem(STORAGE_KEYS.kullanicilar)
-        if (savedKullanicilar) {
-          setKullanicilar(JSON.parse(savedKullanicilar))
-        } else {
-          setKullanicilar(DEMO_KULLANICILAR)
-          localStorage.setItem(STORAGE_KEYS.kullanicilar, JSON.stringify(DEMO_KULLANICILAR))
-        }
-
-        // Load stokSatislar
-        const savedStokSatislar = localStorage.getItem(STORAGE_KEYS.stokSatislar)
-        if (savedStokSatislar) {
-          setStokSatislar(JSON.parse(savedStokSatislar))
-        } else {
-          setStokSatislar(DEMO_STOK_SATISLAR)
-          localStorage.setItem(STORAGE_KEYS.stokSatislar, JSON.stringify(DEMO_STOK_SATISLAR))
-        }
-
-        // Load hareketler
-        const savedHareketler = localStorage.getItem(STORAGE_KEYS.hareketler)
-        if (savedHareketler) {
-          setHareketler(JSON.parse(savedHareketler))
-        }
-
-        // Load clusterAyarlar
-        const savedClusterAyarlar = localStorage.getItem(STORAGE_KEYS.clusterAyarlar)
-        if (savedClusterAyarlar) {
-          setClusterAyarlar(JSON.parse(savedClusterAyarlar))
-        } else {
-          setClusterAyarlar(DEMO_CLUSTER_AYARLAR)
-          localStorage.setItem(STORAGE_KEYS.clusterAyarlar, JSON.stringify(DEMO_CLUSTER_AYARLAR))
-        }
-
-        // Load session
-        const savedSession = localStorage.getItem(STORAGE_KEYS.session)
-        if (savedSession) {
-          setSession(JSON.parse(savedSession))
-        }
-      } catch (error) {
-        console.error('Error loading data from localStorage:', error)
+      if (!isInitialized) {
+        // Initialize with demo data
+        console.log('Initializing database with demo data...')
+        await firestore.initializeDatabase(
+          DEMO_KATEGORILER,
+          DEMO_MAGAZALAR,
+          DEMO_MALZEMELER,
+          DEMO_KULLANICILAR,
+          DEMO_CLUSTER_AYARLAR
+        )
       }
+
+      // Load all data from Firestore
+      const [
+        loadedMalzemeler,
+        loadedMagazalar,
+        loadedStokSatislar,
+        loadedHareketler,
+        loadedKullanicilar,
+        loadedKategoriler,
+        loadedClusterAyarlar,
+      ] = await Promise.all([
+        firestore.getMalzemeler(),
+        firestore.getMagazalar(),
+        firestore.getStokSatislar(),
+        firestore.getHareketler(),
+        firestore.getKullanicilar(),
+        firestore.getKategoriler(),
+        firestore.getClusterAyarlar(),
+      ])
+
+      setMalzemeler(loadedMalzemeler)
+      setMagazalar(loadedMagazalar)
+      setStokSatislar(loadedStokSatislar)
+      setHareketler(loadedHareketler)
+      setKullanicilar(loadedKullanicilar)
+      setKategoriler(loadedKategoriler)
+      setClusterAyarlar(loadedClusterAyarlar)
+
+      // Load session from localStorage
+      const savedSession = localStorage.getItem(SESSION_KEY)
+      if (savedSession) {
+        setSession(JSON.parse(savedSession))
+      }
+    } catch (error) {
+      console.error('Error loading data from Firestore:', error)
+    } finally {
       setLoading(false)
     }
-
-    loadData()
   }, [])
 
-  // Save data to localStorage whenever it changes
   useEffect(() => {
-    if (!loading) {
-      localStorage.setItem(STORAGE_KEYS.malzemeler, JSON.stringify(malzemeler))
-    }
-  }, [malzemeler, loading])
+    loadData()
+  }, [loadData])
 
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem(STORAGE_KEYS.magazalar, JSON.stringify(magazalar))
-    }
-  }, [magazalar, loading])
-
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem(STORAGE_KEYS.stokSatislar, JSON.stringify(stokSatislar))
-    }
-  }, [stokSatislar, loading])
-
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem(STORAGE_KEYS.hareketler, JSON.stringify(hareketler))
-    }
-  }, [hareketler, loading])
-
-  useEffect(() => {
-    if (!loading) {
-      localStorage.setItem(STORAGE_KEYS.clusterAyarlar, JSON.stringify(clusterAyarlar))
-    }
-  }, [clusterAyarlar, loading])
+  // Refresh data from Firestore
+  const refreshData = async () => {
+    await loadData()
+  }
 
   // Malzeme actions
-  const addMalzeme = (malzeme: Omit<Malzeme, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newMalzeme: Malzeme = {
-      ...malzeme,
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+  const addMalzeme = async (malzeme: Omit<Malzeme, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const id = await firestore.addMalzeme(malzeme)
+      const newMalzeme: Malzeme = {
+        ...malzeme,
+        id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      setMalzemeler(prev => [...prev, newMalzeme])
+    } catch (error) {
+      console.error('Error adding malzeme:', error)
+      throw error
     }
-    setMalzemeler(prev => [...prev, newMalzeme])
   }
 
-  const updateMalzeme = (id: string, updates: Partial<Malzeme>) => {
-    setMalzemeler(prev =>
-      prev.map(m =>
-        m.id === id ? { ...m, ...updates, updatedAt: new Date().toISOString() } : m
+  const updateMalzeme = async (id: string, updates: Partial<Malzeme>) => {
+    try {
+      await firestore.updateMalzeme(id, updates)
+      setMalzemeler(prev =>
+        prev.map(m =>
+          m.id === id ? { ...m, ...updates, updatedAt: new Date().toISOString() } : m
+        )
       )
-    )
+    } catch (error) {
+      console.error('Error updating malzeme:', error)
+      throw error
+    }
   }
 
-  const deleteMalzeme = (id: string) => {
-    setMalzemeler(prev => prev.filter(m => m.id !== id))
+  const deleteMalzeme = async (id: string) => {
+    try {
+      await firestore.deleteMalzeme(id)
+      setMalzemeler(prev => prev.filter(m => m.id !== id))
+    } catch (error) {
+      console.error('Error deleting malzeme:', error)
+      throw error
+    }
   }
 
   // Magaza actions
-  const addMagaza = (magaza: Omit<Magaza, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newMagaza: Magaza = {
-      ...magaza,
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
+  const addMagaza = async (magaza: Omit<Magaza, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const id = await firestore.addMagaza(magaza)
+      const newMagaza: Magaza = {
+        ...magaza,
+        id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      setMagazalar(prev => [...prev, newMagaza])
+    } catch (error) {
+      console.error('Error adding magaza:', error)
+      throw error
     }
-    setMagazalar(prev => [...prev, newMagaza])
   }
 
-  const updateMagaza = (id: string, updates: Partial<Magaza>) => {
-    setMagazalar(prev =>
-      prev.map(m =>
-        m.id === id ? { ...m, ...updates, updatedAt: new Date().toISOString() } : m
+  const updateMagaza = async (id: string, updates: Partial<Magaza>) => {
+    try {
+      await firestore.updateMagaza(id, updates)
+      setMagazalar(prev =>
+        prev.map(m =>
+          m.id === id ? { ...m, ...updates, updatedAt: new Date().toISOString() } : m
+        )
       )
-    )
+    } catch (error) {
+      console.error('Error updating magaza:', error)
+      throw error
+    }
   }
 
-  const deleteMagaza = (id: string) => {
-    setMagazalar(prev => prev.filter(m => m.id !== id))
+  const deleteMagaza = async (id: string) => {
+    try {
+      await firestore.deleteMagaza(id)
+      setMagazalar(prev => prev.filter(m => m.id !== id))
+    } catch (error) {
+      console.error('Error deleting magaza:', error)
+      throw error
+    }
   }
 
   // StokSatis actions
-  const addStokSatis = (stokSatis: Omit<StokSatis, 'id' | 'createdAt' | 'updatedAt'>) => {
-    const newStokSatis: StokSatis = {
-      ...stokSatis,
-      id: `${Date.now()}-${Math.random().toString(36).substr(2, 9)}`,
-      createdAt: new Date().toISOString(),
-      updatedAt: new Date().toISOString(),
-    }
-    setStokSatislar(prev => [...prev, newStokSatis])
-  }
-
-  const updateStokSatis = (id: string, updates: Partial<StokSatis>) => {
-    setStokSatislar(prev =>
-      prev.map(s =>
-        s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
-      )
-    )
-  }
-
-  const deleteStokSatis = (id: string) => {
-    setStokSatislar(prev => prev.filter(s => s.id !== id))
-  }
-
-  // Cluster Ayar actions - cluster yol süresi değişince o cluster'daki tüm mağazalar güncellenir
-  const updateClusterAyar = (cluster: string, yolSuresi: number) => {
-    // Cluster ayarını güncelle
-    setClusterAyarlar(prev => {
-      const exists = prev.find(c => c.cluster === cluster)
-      if (exists) {
-        return prev.map(c => c.cluster === cluster ? { ...c, yolSuresi } : c)
-      } else {
-        return [...prev, { cluster, yolSuresi }]
+  const addStokSatis = async (stokSatis: Omit<StokSatis, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const id = await firestore.addStokSatis(stokSatis)
+      const newStokSatis: StokSatis = {
+        ...stokSatis,
+        id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
       }
-    })
+      setStokSatislar(prev => [...prev, newStokSatis])
+    } catch (error) {
+      console.error('Error adding stokSatis:', error)
+      throw error
+    }
+  }
 
-    // Bu cluster'daki tüm mağazaların yolSuresi'ni güncelle
-    setMagazalar(prev =>
-      prev.map(m =>
-        m.cluster === cluster
-          ? { ...m, yolSuresi, updatedAt: new Date().toISOString() }
-          : m
+  const updateStokSatis = async (id: string, updates: Partial<StokSatis>) => {
+    try {
+      await firestore.updateStokSatis(id, updates)
+      setStokSatislar(prev =>
+        prev.map(s =>
+          s.id === id ? { ...s, ...updates, updatedAt: new Date().toISOString() } : s
+        )
       )
-    )
+    } catch (error) {
+      console.error('Error updating stokSatis:', error)
+      throw error
+    }
+  }
+
+  const deleteStokSatis = async (id: string) => {
+    try {
+      await firestore.deleteStokSatis(id)
+      setStokSatislar(prev => prev.filter(s => s.id !== id))
+    } catch (error) {
+      console.error('Error deleting stokSatis:', error)
+      throw error
+    }
+  }
+
+  // Cluster Ayar actions
+  const updateClusterAyar = async (cluster: string, yolSuresi: number) => {
+    try {
+      await firestore.setClusterAyar(cluster, yolSuresi)
+
+      // Update local state
+      setClusterAyarlar(prev => {
+        const exists = prev.find(c => c.cluster === cluster)
+        if (exists) {
+          return prev.map(c => c.cluster === cluster ? { ...c, yolSuresi } : c)
+        } else {
+          return [...prev, { cluster, yolSuresi }]
+        }
+      })
+
+      // Update all magazalar in this cluster
+      setMagazalar(prev =>
+        prev.map(m =>
+          m.cluster === cluster
+            ? { ...m, yolSuresi, updatedAt: new Date().toISOString() }
+            : m
+        )
+      )
+    } catch (error) {
+      console.error('Error updating cluster ayar:', error)
+      throw error
+    }
   }
 
   // Auth actions
   const login = (email: string, password: string): boolean => {
-    // Demo login - in real app, this would be an API call
+    // Demo login - in real app, this would use Firebase Auth
     const demoAccounts = [
       { email: 'admin@sarf.com', password: 'admin123', ad: 'Admin', rol: 'admin' as const },
       { email: 'yonetici@sarf.com', password: 'yonetici123', ad: 'Yönetici', rol: 'yonetici' as const },
@@ -719,7 +455,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         loginTime: new Date().toISOString(),
       }
       setSession(newSession)
-      localStorage.setItem(STORAGE_KEYS.session, JSON.stringify(newSession))
+      localStorage.setItem(SESSION_KEY, JSON.stringify(newSession))
       return true
     }
     return false
@@ -727,7 +463,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   const logout = () => {
     setSession(null)
-    localStorage.removeItem(STORAGE_KEYS.session)
+    localStorage.removeItem(SESSION_KEY)
   }
 
   return (
@@ -752,6 +488,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         updateStokSatis,
         deleteStokSatis,
         updateClusterAyar,
+        refreshData,
         login,
         logout,
       }}
