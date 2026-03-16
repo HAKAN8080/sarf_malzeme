@@ -19,7 +19,17 @@ import { useStore } from '@/lib/store'
 import type { StokSatis } from '@/lib/types'
 
 export default function StokSatisPage() {
-  const { stokSatislar, addStokSatis, updateStokSatis, deleteStokSatis } = useStore()
+  const { stokSatislar, addStokSatis, updateStokSatis, deleteStokSatis, magazalar, malzemeler } = useStore()
+
+  // Mağaza ve Malzeme eşleşme kontrolü
+  const magazaKodlari = useMemo(() => new Set(magazalar.map(m => m.magazaKodu)), [magazalar])
+  const malzemeKodlari = useMemo(() => new Set(malzemeler.map(m => m.malzemeKodu)), [malzemeler])
+
+  const getValidationStatus = (item: StokSatis) => {
+    const magazaValid = magazaKodlari.has(item.magazaKodu)
+    const malzemeValid = malzemeKodlari.has(item.malzemeKodu)
+    return { magazaValid, malzemeValid, isValid: magazaValid && malzemeValid }
+  }
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingItem, setEditingItem] = useState<StokSatis | null>(null)
@@ -77,6 +87,14 @@ export default function StokSatisPage() {
       )
     })
   }, [stokSatislar, searchTerm])
+
+  // Eşleşmeyen kayıtları hesapla
+  const invalidRecords = useMemo(() => {
+    return filteredData.filter(item => {
+      const { isValid } = getValidationStatus(item)
+      return !isValid
+    })
+  }, [filteredData, magazaKodlari, malzemeKodlari])
 
   const openAddModal = () => {
     setEditingItem(null)
@@ -326,6 +344,50 @@ export default function StokSatisPage() {
         </div>
       </div>
 
+      {/* Invalid Records Warning */}
+      {invalidRecords.length > 0 && (
+        <div className="mb-6 p-4 rounded-xl border border-red-200 dark:border-red-800 bg-red-50 dark:bg-red-900/10">
+          <div className="flex items-start gap-3">
+            <AlertCircle className="h-5 w-5 text-red-500 mt-0.5 flex-shrink-0" />
+            <div className="flex-1">
+              <h3 className="text-sm font-medium text-red-800 dark:text-red-300 mb-2">
+                Eşleşmeyen Kayıtlar ({invalidRecords.length} adet)
+              </h3>
+              <p className="text-sm text-red-600 dark:text-red-400 mb-3">
+                Aşağıdaki kayıtlardaki mağaza veya malzeme kodları sistemde tanımlı değil.
+                Lütfen Mağazalar veya Malzemeler sayfasından ilgili kayıtları ekleyin.
+              </p>
+              <div className="max-h-32 overflow-y-auto space-y-1">
+                {invalidRecords.slice(0, 10).map(item => {
+                  const validation = getValidationStatus(item)
+                  return (
+                    <div key={item.id} className="text-xs text-red-700 dark:text-red-400 flex items-center gap-2">
+                      <span>•</span>
+                      {!validation.magazaValid && (
+                        <span className="bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded">
+                          Mağaza: {item.magazaKodu}
+                        </span>
+                      )}
+                      {!validation.malzemeValid && (
+                        <span className="bg-red-100 dark:bg-red-900/30 px-1.5 py-0.5 rounded">
+                          Malzeme: {item.malzemeKodu}
+                        </span>
+                      )}
+                      <span className="text-red-500">({item.yil}/{item.hafta})</span>
+                    </div>
+                  )
+                })}
+                {invalidRecords.length > 10 && (
+                  <div className="text-xs text-red-500 italic">
+                    ... ve {invalidRecords.length - 10} kayıt daha
+                  </div>
+                )}
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
       {/* Table */}
       <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] overflow-hidden">
         <div className="overflow-x-auto">
@@ -361,16 +423,28 @@ export default function StokSatisPage() {
               ) : (
                 filteredData.map(item => {
                   const isEditable = isLatestWeek(item)
+                  const validation = getValidationStatus(item)
+                  const rowClass = !validation.isValid
+                    ? 'bg-red-50 dark:bg-red-900/10 border-red-200 dark:border-red-800'
+                    : isEditable
+                      ? 'bg-blue-50/50 dark:bg-blue-900/5'
+                      : ''
                   return (
-                  <tr key={item.id} className={`border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] ${isEditable ? 'bg-blue-50/50 dark:bg-blue-900/5' : ''}`}>
+                  <tr key={item.id} className={`border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] ${rowClass}`}>
                     <td className="px-3 py-2 whitespace-nowrap">
-                      <code className="text-xs bg-[hsl(var(--muted))] px-1.5 py-0.5 rounded">{item.magazaKodu}</code>
+                      <code className={`text-xs px-1.5 py-0.5 rounded ${!validation.magazaValid ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-[hsl(var(--muted))]'}`}>
+                        {item.magazaKodu}
+                        {!validation.magazaValid && <AlertCircle className="inline h-3 w-3 ml-1" />}
+                      </code>
                     </td>
-                    <td className="px-3 py-2 whitespace-nowrap">{item.magazaAdi}</td>
+                    <td className={`px-3 py-2 whitespace-nowrap ${!validation.magazaValid ? 'text-red-600 dark:text-red-400' : ''}`}>{item.magazaAdi}</td>
                     <td className="px-3 py-2 whitespace-nowrap">
-                      <code className="text-xs bg-[hsl(var(--muted))] px-1.5 py-0.5 rounded">{item.malzemeKodu}</code>
+                      <code className={`text-xs px-1.5 py-0.5 rounded ${!validation.malzemeValid ? 'bg-red-100 text-red-700 dark:bg-red-900/30 dark:text-red-400' : 'bg-[hsl(var(--muted))]'}`}>
+                        {item.malzemeKodu}
+                        {!validation.malzemeValid && <AlertCircle className="inline h-3 w-3 ml-1" />}
+                      </code>
                     </td>
-                    <td className="px-3 py-2 font-medium text-[hsl(var(--foreground))] whitespace-nowrap">{item.malzemeAdi}</td>
+                    <td className={`px-3 py-2 font-medium whitespace-nowrap ${!validation.malzemeValid ? 'text-red-600 dark:text-red-400' : 'text-[hsl(var(--foreground))]'}`}>{item.malzemeAdi}</td>
                     <td className="px-3 py-2 text-center whitespace-nowrap">{item.yil}</td>
                     <td className="px-3 py-2 text-center whitespace-nowrap">{item.ay}</td>
                     <td className="px-3 py-2 text-center whitespace-nowrap">
