@@ -1,6 +1,8 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from 'firebase/auth'
+import { auth } from './firebase'
 import type { Malzeme, Magaza, StokSatis, StokHareket, Kullanici, Kategori, ClusterAyar } from './types'
 import * as firestore from './firestore'
 
@@ -365,42 +367,52 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Auth actions
+  // Auth actions - Firebase Authentication
   const login = async (email: string, password: string): Promise<boolean> => {
-    // Önce Firestore'daki kullanıcıları kontrol et
-    const kullanici = kullanicilar.find(k => k.email === email && k.password === password && k.aktif)
+    try {
+      // Firebase Auth ile giriş yap
+      const userCredential = await signInWithEmailAndPassword(auth, email, password)
+      const user = userCredential.user
 
-    if (kullanici) {
-      const newSession: Session = {
-        userId: kullanici.id,
-        email: kullanici.email,
-        ad: kullanici.ad,
-        rol: kullanici.rol,
-        loginTime: new Date().toISOString(),
+      // Firestore'dan kullanıcı bilgilerini al
+      const kullanici = kullanicilar.find(k => k.email === email && k.aktif)
+
+      if (kullanici) {
+        const newSession: Session = {
+          userId: kullanici.id,
+          email: kullanici.email,
+          ad: kullanici.ad,
+          rol: kullanici.rol,
+          loginTime: new Date().toISOString(),
+        }
+        setSession(newSession)
+        localStorage.setItem(SESSION_KEY, JSON.stringify(newSession))
+        return true
+      } else {
+        // Kullanıcı Firebase'de var ama Firestore'da yok - admin olarak kabul et
+        const newSession: Session = {
+          userId: user.uid,
+          email: email,
+          ad: 'Admin',
+          rol: 'admin',
+          loginTime: new Date().toISOString(),
+        }
+        setSession(newSession)
+        localStorage.setItem(SESSION_KEY, JSON.stringify(newSession))
+        return true
       }
-      setSession(newSession)
-      localStorage.setItem(SESSION_KEY, JSON.stringify(newSession))
-      return true
+    } catch (error: unknown) {
+      console.error('Login error:', error)
+      return false
     }
-
-    // Fallback: Hardcoded admin (ilk kullanıcı ekleme için)
-    if (email === 'siriusdanismanlik.tr@gmail.com' && password === 'admin.1903') {
-      const newSession: Session = {
-        userId: 'admin-fallback',
-        email: email,
-        ad: 'Admin',
-        rol: 'admin',
-        loginTime: new Date().toISOString(),
-      }
-      setSession(newSession)
-      localStorage.setItem(SESSION_KEY, JSON.stringify(newSession))
-      return true
-    }
-
-    return false
   }
 
-  const logout = () => {
+  const logout = async () => {
+    try {
+      await signOut(auth)
+    } catch (error) {
+      console.error('Logout error:', error)
+    }
     setSession(null)
     localStorage.removeItem(SESSION_KEY)
   }
