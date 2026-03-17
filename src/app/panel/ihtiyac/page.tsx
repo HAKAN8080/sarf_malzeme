@@ -9,8 +9,6 @@ import {
   CheckCircle,
   Clock,
   ShoppingCart,
-  Calculator,
-  Info,
   Truck,
   Factory,
   Package,
@@ -504,18 +502,6 @@ export default function IhtiyacPage() {
           <Download className="h-4 w-4" />
           CSV İndir
         </button>
-      </div>
-
-      {/* Hesaplama Açıklaması */}
-      <div className="bg-blue-50 dark:bg-blue-900/10 rounded-xl p-4 border border-blue-200 dark:border-blue-900/20 mb-6">
-        <div className="flex items-start gap-3">
-          <Calculator className="h-5 w-5 text-blue-600 mt-0.5 flex-shrink-0" />
-          <div className="text-sm text-blue-800 dark:text-blue-300 space-y-1">
-            <p className="font-medium">Hesaplama Formülleri (Hafta Bazlı):</p>
-            <p><Truck className="inline h-3 w-3 mr-1" /><strong>Sevkiyat:</strong> Yol süresi kadar hafta için YoY ile forecast hesapla → Min Stok (son hafta satış) altına düşerse tamamla</p>
-            <p><Factory className="inline h-3 w-3 mr-1" /><strong>Üretim:</strong> Düzeltilmiş Satış × (Ted+Ek Süre) × (1+Fire%) - Depo - Stok - Yol (Ürün Bazlı)</p>
-          </div>
-        </div>
       </div>
 
       {/* Summary Cards */}

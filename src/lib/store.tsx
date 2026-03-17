@@ -7,154 +7,17 @@ import * as firestore from './firestore'
 // Session storage key (still using localStorage for session)
 const SESSION_KEY = 'sarf_session'
 
-// Demo data for initial setup
-const DEMO_KATEGORILER: Omit<Kategori, 'id'>[] = [
-  { ad: 'Temizlik', renk: '#3B82F6' },
-  { ad: 'Ambalaj', renk: '#10B981' },
-  { ad: 'Kırtasiye', renk: '#F59E0B' },
-  { ad: 'Gıda', renk: '#EF4444' },
-  { ad: 'Teknik', renk: '#8B5CF6' },
+// Varsayılan kategoriler (boş başlangıç için)
+const DEFAULT_KATEGORILER: Omit<Kategori, 'id'>[] = [
+  { ad: 'Planlama', renk: '#3B82F6' },
 ]
 
-const DEMO_MAGAZALAR: Omit<Magaza, 'id' | 'createdAt' | 'updatedAt'>[] = [
-  { magazaKodu: '1001', magazaAdi: 'Deneme Store', cluster: 'Top1', sehir: 'İstanbul', bolge: 'Avrupa', bolgeMuduru: 'Ahmet Yılmaz', kapasiteAdet: 500, m2: 250, yolSuresi: 3, oncelik: 1, ortalamaFisSayisi: 1250, fbu: 3.2, fbs: 285, satisAdet: 4000, aktif: true },
-  { magazaKodu: '1002', magazaAdi: 'Kadıköy Şube', cluster: 'Top1', sehir: 'İstanbul', bolge: 'Anadolu', bolgeMuduru: 'Mehmet Demir', kapasiteAdet: 300, m2: 180, yolSuresi: 3, oncelik: 2, ortalamaFisSayisi: 850, fbu: 2.8, fbs: 220, satisAdet: 2380, aktif: true },
-  { magazaKodu: '1003', magazaAdi: 'Ankara Şube', cluster: 'Top2', sehir: 'Ankara', bolge: 'İç Anadolu', bolgeMuduru: 'Ayşe Kaya', kapasiteAdet: 400, m2: 200, yolSuresi: 3, oncelik: 1, ortalamaFisSayisi: 980, fbu: 3.0, fbs: 250, satisAdet: 2940, aktif: true },
-]
-
-const DEMO_CLUSTER_AYARLAR: ClusterAyar[] = [
+// Varsayılan cluster ayarları
+const DEFAULT_CLUSTER_AYARLAR: ClusterAyar[] = [
   { cluster: 'Top1', yolSuresi: 3 },
   { cluster: 'Top2', yolSuresi: 3 },
   { cluster: 'Top3', yolSuresi: 3 },
   { cluster: 'Diğer', yolSuresi: 3 },
-]
-
-const DEMO_MALZEMELER: Omit<Malzeme, 'id' | 'createdAt' | 'updatedAt'>[] = [
-  {
-    malzemeKodu: '10045564001',
-    barkod: '8684230000000',
-    ad: 'Kraft Poşet MAVİ (M), 2. Boy',
-    anaGrup: 'Planlama',
-    subGrup: 'Poşet',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 200,
-    koliIci: 200,
-    ureticiKodu: '101009',
-    ureticiAdi: 'MODEL AMBALAJ ÜRÜNLERI SANAYI VE TI',
-    ortalamaTedarikSuresi: 6,
-    ortalamaEkSure: 2,
-    depoStok: 342001,
-    minSevkMiktari: 200,
-    minSiparisMiktari: 50000,
-    guvenlikStok: 300,
-    aktif: true,
-  },
-  {
-    malzemeKodu: '60001302',
-    barkod: '8684230000000',
-    ad: 'YM- Yuvarlak Sticker Kırmızı 5cm',
-    anaGrup: 'Planlama',
-    subGrup: 'Hediye Paketi',
-    kalite: '1',
-    tetikleyici: 'Kampanya/Fiyat',
-    stokTakip: 'Yok',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 10,
-    innerBox: 10000,
-    koliIci: 10000,
-    ureticiKodu: '200036',
-    ureticiAdi: 'BASKI ETİKET BARKOD SAN.DIŞ.TİC.LTD.ŞTİ.',
-    ortalamaTedarikSuresi: 3,
-    ortalamaEkSure: 2,
-    depoStok: 328500,
-    minSevkMiktari: 1000,
-    minSiparisMiktari: 100000,
-    guvenlikStok: 1000,
-    aktif: true,
-  },
-  {
-    malzemeKodu: '10045546001',
-    barkod: '8684230000000',
-    ad: 'Kraft Poşet Turuncu (M), 2. Boy',
-    anaGrup: 'Planlama',
-    subGrup: 'Poşet',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 200,
-    koliIci: 200,
-    ureticiKodu: '101009',
-    ureticiAdi: 'MODEL AMBALAJ ÜRÜNLERI SANAYI VE TI',
-    ortalamaTedarikSuresi: 6,
-    ortalamaEkSure: 2,
-    depoStok: 287814,
-    minSevkMiktari: 200,
-    minSiparisMiktari: 50000,
-    guvenlikStok: 300,
-    aktif: true,
-  },
-  {
-    malzemeKodu: '10045542001',
-    barkod: '8684230000000',
-    ad: 'Kraft Poşet MAVİ (L), 3. Boy',
-    anaGrup: 'Planlama',
-    subGrup: 'Poşet',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 200,
-    koliIci: 200,
-    ureticiKodu: '200377',
-    ureticiAdi: 'MEHMET TORUN - MAS OFSET',
-    ortalamaTedarikSuresi: 6,
-    ortalamaEkSure: 2,
-    depoStok: 237959,
-    minSevkMiktari: 200,
-    minSiparisMiktari: 50000,
-    guvenlikStok: 200,
-    aktif: true,
-  },
-  {
-    malzemeKodu: '10045547001',
-    barkod: '8684230000000',
-    ad: 'Kraft Poşet TURUNCU (L), 3. Boy',
-    anaGrup: 'Planlama',
-    subGrup: 'Poşet',
-    kalite: '1',
-    tetikleyici: 'Satış',
-    stokTakip: 'Var',
-    birimTuketimBirim: 'Adet',
-    birimTuketimMiktar: 1,
-    fireOrani: 3,
-    innerBox: 200,
-    koliIci: 200,
-    ureticiKodu: '101009',
-    ureticiAdi: 'MODEL AMBALAJ ÜRÜNLERI SANAYI VE TI',
-    ortalamaTedarikSuresi: 6,
-    ortalamaEkSure: 2,
-    depoStok: 233685,
-    minSevkMiktari: 200,
-    minSiparisMiktari: 50000,
-    guvenlikStok: 200,
-    aktif: true,
-  },
-]
-
-const DEMO_KULLANICILAR: Omit<Kullanici, 'id' | 'createdAt'>[] = [
-  { email: 'admin@sarf.com', ad: 'Admin', rol: 'admin', aktif: true },
-  { email: 'yonetici@sarf.com', ad: 'Yönetici', rol: 'yonetici', aktif: true },
 ]
 
 interface Session {
@@ -229,14 +92,14 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       const isInitialized = await firestore.isDatabaseInitialized()
 
       if (!isInitialized) {
-        // Initialize with demo data
-        console.log('Initializing database with demo data...')
+        // Initialize with default settings (empty data)
+        console.log('Initializing database...')
         await firestore.initializeDatabase(
-          DEMO_KATEGORILER,
-          DEMO_MAGAZALAR,
-          DEMO_MALZEMELER,
-          DEMO_KULLANICILAR,
-          DEMO_CLUSTER_AYARLAR
+          DEFAULT_KATEGORILER,
+          [], // Boş mağaza listesi
+          [], // Boş malzeme listesi
+          [], // Boş kullanıcı listesi
+          DEFAULT_CLUSTER_AYARLAR
         )
       }
 
@@ -461,14 +324,12 @@ export function StoreProvider({ children }: { children: ReactNode }) {
 
   // Auth actions
   const login = (email: string, password: string): boolean => {
-    // Demo login - in real app, this would use Firebase Auth
-    const demoAccounts = [
-      { email: 'admin@sarf.com', password: 'admin123', ad: 'Admin', rol: 'admin' as const },
-      { email: 'yonetici@sarf.com', password: 'yonetici123', ad: 'Yönetici', rol: 'yonetici' as const },
-      { email: 'demo@sarf.com', password: 'demo123', ad: 'Demo Kullanıcı', rol: 'magaza' as const },
+    // Yetkili kullanıcılar
+    const accounts = [
+      { email: 'siriusdanismanlik.tr@gmail.com', password: 'admin.1903', ad: 'Admin', rol: 'admin' as const },
     ]
 
-    const account = demoAccounts.find(a => a.email === email && a.password === password)
+    const account = accounts.find(a => a.email === email && a.password === password)
     if (account) {
       const newSession: Session = {
         userId: Date.now().toString(),

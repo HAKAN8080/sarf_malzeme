@@ -124,24 +124,6 @@ export default function GirisPage() {
             </button>
           </form>
 
-          {/* Demo Accounts */}
-          <div className="mt-6 pt-6 border-t border-[hsl(var(--border))]">
-            <p className="text-xs text-[hsl(var(--muted-foreground))] text-center mb-3">Demo Hesaplar</p>
-            <div className="space-y-2 text-xs">
-              <div className="flex items-center justify-between p-2 rounded-lg bg-[hsl(var(--muted))]">
-                <span className="text-[hsl(var(--muted-foreground))]">Admin:</span>
-                <code className="text-[hsl(var(--foreground))]">admin@sarf.com / admin123</code>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-[hsl(var(--muted))]">
-                <span className="text-[hsl(var(--muted-foreground))]">Yönetici:</span>
-                <code className="text-[hsl(var(--foreground))]">yonetici@sarf.com / yonetici123</code>
-              </div>
-              <div className="flex items-center justify-between p-2 rounded-lg bg-[hsl(var(--muted))]">
-                <span className="text-[hsl(var(--muted-foreground))]">Demo:</span>
-                <code className="text-[hsl(var(--foreground))]">demo@sarf.com / demo123</code>
-              </div>
-            </div>
-          </div>
         </div>
 
         {/* Footer */}
