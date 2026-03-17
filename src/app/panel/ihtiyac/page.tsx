@@ -407,6 +407,54 @@ export default function IhtiyacPage() {
     return { kritikCount, uyariCount, yeterliCount, toplamSevkiyat, toplamUretim, acilUretim }
   }, [ihtiyaclar, uretimOzetleri])
 
+  // Top 10 Malzeme özeti (mağaza bazlı değil, toplam değerler)
+  const top10Malzemeler = useMemo(() => {
+    // Malzeme bazlı toplamları hesapla
+    const malzemeMap: Record<string, {
+      malzemeKodu: string
+      malzemeAdi: string
+      depoStok: number
+      magazaStok: number
+      satisAdet: number
+      sevkMiktari: number
+      uretimTalep: number
+    }> = {}
+
+    // İhtiyaçlardan mağaza stok, satış ve sevk miktarlarını topla
+    for (const ihtiyac of ihtiyaclar) {
+      if (!malzemeMap[ihtiyac.malzemeKodu]) {
+        const malzeme = aktivMalzemeler.find(m => m.malzemeKodu === ihtiyac.malzemeKodu)
+        malzemeMap[ihtiyac.malzemeKodu] = {
+          malzemeKodu: ihtiyac.malzemeKodu,
+          malzemeAdi: ihtiyac.malzemeAdi,
+          depoStok: malzeme?.depoStok || 0,
+          magazaStok: 0,
+          satisAdet: 0,
+          sevkMiktari: 0,
+          uretimTalep: 0,
+        }
+      }
+      // Tüm mağazalardaki stok toplamı
+      malzemeMap[ihtiyac.malzemeKodu].magazaStok += ihtiyac.mevcutStok
+      // Satış toplamı (son hafta satışları)
+      malzemeMap[ihtiyac.malzemeKodu].satisAdet += ihtiyac.sonHaftaSatis
+      // Sevkiyat önerisi toplamı
+      malzemeMap[ihtiyac.malzemeKodu].sevkMiktari += ihtiyac.sevkiyatOnerisi
+    }
+
+    // Üretim özetlerinden üretim talebini ekle
+    for (const ozet of uretimOzetleri) {
+      if (malzemeMap[ozet.malzemeKodu]) {
+        malzemeMap[ozet.malzemeKodu].uretimTalep = ozet.uretimOnerisi
+      }
+    }
+
+    // Sevk miktarına göre sırala ve ilk 10'u al
+    return Object.values(malzemeMap)
+      .sort((a, b) => b.sevkMiktari - a.sevkMiktari)
+      .slice(0, 10)
+  }, [ihtiyaclar, uretimOzetleri, aktivMalzemeler])
+
   // CSV Export - Mağaza
   const exportMagazaCSV = () => {
     const headers = [
@@ -549,6 +597,64 @@ export default function IhtiyacPage() {
           <div className="text-2xl font-bold text-red-700 dark:text-red-400">{summary.acilUretim}</div>
         </div>
       </div>
+
+      {/* Top 10 Malzeme Özeti */}
+      {top10Malzemeler.length > 0 && (
+        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] mb-6">
+          <div className="p-4 border-b border-[hsl(var(--border))]">
+            <h2 className="font-semibold text-[hsl(var(--foreground))] flex items-center gap-2">
+              <Package className="h-4 w-4 text-[hsl(var(--primary))]" />
+              Top 10 Malzeme Özeti (Genel Toplam)
+            </h2>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[hsl(var(--border))] bg-[hsl(var(--muted))]">
+                  <th className="text-left px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Malzeme</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Depo Stok</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Mağaza Stok</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Satış Adet</th>
+                  <th className="text-center px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap bg-blue-50 dark:bg-blue-900/10">Sevk Miktarı</th>
+                  <th className="text-center px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap bg-orange-50 dark:bg-orange-900/10">Üretim Talep</th>
+                </tr>
+              </thead>
+              <tbody>
+                {top10Malzemeler.map((m, index) => (
+                  <tr key={m.malzemeKodu} className="border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))]">
+                    <td className="px-3 py-2 whitespace-nowrap">
+                      <div className="flex items-center gap-2">
+                        <span className="w-5 h-5 rounded-full bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))] text-xs font-bold flex items-center justify-center">{index + 1}</span>
+                        <div>
+                          <div className="text-sm font-medium">{m.malzemeAdi}</div>
+                          <div className="text-xs text-[hsl(var(--muted-foreground))]">{m.malzemeKodu}</div>
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap font-medium">{m.depoStok.toLocaleString('tr-TR')}</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap">{m.magazaStok.toLocaleString('tr-TR')}</td>
+                    <td className="px-3 py-2 text-right whitespace-nowrap">{Math.round(m.satisAdet).toLocaleString('tr-TR')}</td>
+                    <td className="px-3 py-2 text-center whitespace-nowrap bg-blue-50/50 dark:bg-blue-900/5">
+                      {m.sevkMiktari > 0 ? (
+                        <span className="inline-flex items-center justify-center min-w-[3rem] px-2 py-1 rounded-lg bg-blue-500/10 text-blue-600 font-bold">
+                          {m.sevkMiktari.toLocaleString('tr-TR')}
+                        </span>
+                      ) : '-'}
+                    </td>
+                    <td className="px-3 py-2 text-center whitespace-nowrap bg-orange-50/50 dark:bg-orange-900/5">
+                      {m.uretimTalep > 0 ? (
+                        <span className="inline-flex items-center justify-center min-w-[3rem] px-2 py-1 rounded-lg bg-orange-500/10 text-orange-600 font-bold">
+                          {m.uretimTalep.toLocaleString('tr-TR')}
+                        </span>
+                      ) : '-'}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Filters */}
       <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-4 mb-6">
