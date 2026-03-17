@@ -181,27 +181,40 @@ export default function MagazalarPage() {
     if (!file) return
 
     const reader = new FileReader()
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const text = event.target?.result as string
-      parseCSV(text)
+      await parseCSV(text)
     }
     reader.readAsText(file, 'UTF-8')
   }
 
-  const parseCSV = (text: string) => {
+  const parseCSV = async (text: string) => {
     const lines = text.split('\n').filter(line => line.trim())
     if (lines.length < 2) {
       setImportResult({ success: 0, error: 1 })
       return
     }
 
-    const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase())
+    // Otomatik ayraç tespiti (virgül veya noktalı virgül)
+    const firstLine = lines[0]
+    const delimiter = firstLine.includes(';') ? ';' : ','
+
+    // BOM karakterini temizle ve header'ları parse et
+    const cleanFirstLine = firstLine.replace(/^\uFEFF/, '')
+    const headers = cleanFirstLine.split(delimiter).map(h => h.replace(/"/g, '').trim().toLowerCase())
+
     let success = 0
     let error = 0
 
     for (let i = 1; i < lines.length; i++) {
       try {
-        const values = lines[i].match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map(v => v.replace(/"/g, '').trim()) || []
+        // Ayraç tipine göre değerleri parse et
+        let values: string[]
+        if (delimiter === ';') {
+          values = lines[i].split(';').map(v => v.replace(/"/g, '').trim())
+        } else {
+          values = lines[i].match(/(".*?"|[^",]+)(?=\s*,|\s*$)/g)?.map(v => v.replace(/"/g, '').trim()) || []
+        }
 
         const getValue = (key: string) => {
           const index = headers.indexOf(key)
@@ -219,7 +232,7 @@ export default function MagazalarPage() {
         const oncelikValue = parseInt(getValue('oncelik')) || 2
         const oncelik = ([1, 2, 3].includes(oncelikValue) ? oncelikValue : 2) as 1 | 2 | 3
 
-        addMagaza({
+        await addMagaza({
           magazaKodu,
           magazaAdi,
           cluster: getValue('cluster') || undefined,
@@ -232,7 +245,7 @@ export default function MagazalarPage() {
           satisAdet: parseInt(getValue('satis_adet')) || undefined,
           kapasiteAdet: parseInt(getValue('kapasite_adet')) || undefined,
           m2: parseInt(getValue('m2')) || undefined,
-          yolSuresi: parseInt(getValue('yol_suresi')) || 3, // default 3 hafta
+          yolSuresi: parseInt(getValue('yol_suresi')) || 3,
           oncelik,
           aktif: true,
         })
