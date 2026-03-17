@@ -8,7 +8,6 @@ import {
   Store,
   LayoutDashboard,
   ClipboardList,
-  TrendingUp,
   BarChart3,
   Settings,
   LogOut,
@@ -17,7 +16,6 @@ import {
   ChevronRight,
   User,
   Loader2,
-  ArrowLeftRight,
   Users,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
@@ -28,7 +26,6 @@ const sidebarItems = [
   { name: 'Mağazalar', href: '/panel/magazalar', icon: Store, adminOnly: false },
   { name: 'Stok & Satış', href: '/panel/stok-satis', icon: ClipboardList, adminOnly: false },
   { name: 'İhtiyaç Planlama', href: '/panel/ihtiyac', icon: BarChart3, adminOnly: false },
-  { name: 'Hareketler', href: '/panel/hareketler', icon: ArrowLeftRight, adminOnly: false },
   { name: 'Ayarlar', href: '/panel/ayarlar', icon: Settings, adminOnly: false },
   { name: 'Kullanıcı Yönetimi', href: '/panel/kullanicilar', icon: Users, adminOnly: true },
 ]

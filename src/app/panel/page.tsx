@@ -5,7 +5,6 @@ import {
   Package,
   Store,
   TrendingUp,
-  Clock,
   BarChart3,
   Truck,
   Factory,
@@ -13,7 +12,7 @@ import {
 import { useStore } from '@/lib/store'
 
 export default function DashboardPage() {
-  const { malzemeler, magazalar, stokSatislar, hareketler } = useStore()
+  const { malzemeler, magazalar, stokSatislar } = useStore()
 
   // Aktif malzeme ve mağazalar
   const aktivMalzemeler = useMemo(() => malzemeler.filter(m => m.aktif), [malzemeler])
@@ -22,9 +21,7 @@ export default function DashboardPage() {
   // Calculate statistics
   const stats = useMemo(() => {
     // Aktif mağazaların kodlarını al
-    const aktiveMagazaKodlari = new Set(
-      magazalar.filter(m => m.aktif).map(m => m.magazaKodu)
-    )
+    const aktiveMagazaKodlari = new Set(aktivMagazalar.map(m => m.magazaKodu))
 
     // Sadece aktif mağazaların stok/satış verilerini hesapla
     const aktifStokSatislar = stokSatislar.filter(s => aktiveMagazaKodlari.has(s.magazaKodu))
@@ -34,48 +31,14 @@ export default function DashboardPage() {
     const toplamCiro = aktifStokSatislar.reduce((sum, s) => sum + (s.ciro || 0), 0)
     const toplamSatis = aktifStokSatislar.reduce((sum, s) => sum + (s.satis || 0), 0)
 
-    // Son hareketler (sadece aktif mağazalar)
-    const aktiveMagazaIds = new Set(magazalar.filter(m => m.aktif).map(m => m.id))
-    const sonHareketler = [...hareketler]
-      .filter(h => aktiveMagazaIds.has(h.magazaId))
-      .sort((a, b) => new Date(b.tarih).getTime() - new Date(a.tarih).getTime())
-      .slice(0, 5)
-
     return {
-      toplamMalzeme: malzemeler.filter(m => m.aktif).length,
-      toplamMagaza: magazalar.filter(m => m.aktif).length,
+      toplamMalzeme: aktivMalzemeler.length,
+      toplamMagaza: aktivMagazalar.length,
       toplamStokDegeri,
       toplamCiro,
       toplamSatis,
-      sonHareketler,
     }
-  }, [malzemeler, magazalar, stokSatislar, hareketler])
-
-  // Get top satış by mağaza (sadece aktif ve mevcut mağazalar)
-  const topMagazalar = useMemo(() => {
-    // Aktif mağazaların kodlarını al
-    const aktiveMagazaKodlari = new Set(
-      magazalar.filter(m => m.aktif).map(m => m.magazaKodu)
-    )
-
-    const magazaSatislar: Record<string, { magazaAdi: string; ciro: number; satis: number }> = {}
-
-    stokSatislar.forEach(s => {
-      // Sadece aktif mağazaların verilerini göster
-      if (!aktiveMagazaKodlari.has(s.magazaKodu)) return
-
-      if (!magazaSatislar[s.magazaKodu]) {
-        magazaSatislar[s.magazaKodu] = { magazaAdi: s.magazaAdi, ciro: 0, satis: 0 }
-      }
-      magazaSatislar[s.magazaKodu].ciro += s.ciro || 0
-      magazaSatislar[s.magazaKodu].satis += s.satis || 0
-    })
-
-    return Object.entries(magazaSatislar)
-      .sort((a, b) => b[1].ciro - a[1].ciro)
-      .slice(0, 5)
-      .map(([kod, data]) => ({ magazaKodu: kod, ...data }))
-  }, [stokSatislar, magazalar])
+  }, [aktivMalzemeler, aktivMagazalar, stokSatislar])
 
   // Top 10 Malzeme özeti (genel toplam - mağaza bazlı değil)
   const top10Malzemeler = useMemo(() => {
@@ -273,111 +236,6 @@ export default function DashboardPage() {
           </div>
         </div>
       )}
-
-      {/* Content Grid */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Top Mağazalar */}
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))]">
-          <div className="p-4 border-b border-[hsl(var(--border))]">
-            <h2 className="font-semibold text-[hsl(var(--foreground))] flex items-center gap-2">
-              <Store className="h-4 w-4 text-green-500" />
-              En Yüksek Cirolu Mağazalar
-            </h2>
-          </div>
-          <div className="p-4">
-            {topMagazalar.length === 0 ? (
-              <div className="text-center py-8 text-[hsl(var(--muted-foreground))]">
-                <Store className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Veri bulunmuyor</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {topMagazalar.map((item, index) => (
-                  <div
-                    key={item.magazaKodu}
-                    className="flex items-center justify-between p-3 rounded-lg bg-[hsl(var(--muted))]"
-                  >
-                    <div className="flex items-center gap-3">
-                      <div className="w-8 h-8 rounded-full bg-green-500/10 flex items-center justify-center text-sm font-bold text-green-600">
-                        {index + 1}
-                      </div>
-                      <div>
-                        <div className="font-medium text-sm text-[hsl(var(--foreground))]">{item.magazaAdi}</div>
-                        <div className="text-xs text-[hsl(var(--muted-foreground))]">{item.magazaKodu}</div>
-                      </div>
-                    </div>
-                    <div className="text-right">
-                      <div className="text-sm font-medium text-green-600">
-                        {formatCurrency(item.ciro)}
-                      </div>
-                      <div className="text-xs text-[hsl(var(--muted-foreground))]">{item.satis.toLocaleString()} satış</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-            )}
-          </div>
-        </div>
-
-        {/* Son Hareketler */}
-        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))]">
-          <div className="p-4 border-b border-[hsl(var(--border))]">
-            <h2 className="font-semibold text-[hsl(var(--foreground))] flex items-center gap-2">
-              <Clock className="h-4 w-4 text-[hsl(var(--primary))]" />
-              Son Hareketler
-            </h2>
-          </div>
-          <div className="p-4">
-            {stats.sonHareketler.length === 0 ? (
-              <div className="text-center py-8 text-[hsl(var(--muted-foreground))]">
-                <Clock className="h-8 w-8 mx-auto mb-2 opacity-50" />
-                <p className="text-sm">Henüz hareket bulunmuyor</p>
-              </div>
-            ) : (
-              <div className="space-y-3">
-                {stats.sonHareketler.map((hareket) => {
-                  const malzeme = malzemeler.find(m => m.id === hareket.malzemeId)
-                  const magaza = magazalar.find(m => m.id === hareket.magazaId)
-                  const isGiris = hareket.tip === 'giris'
-
-                  return (
-                    <div
-                      key={hareket.id}
-                      className="flex items-center justify-between p-3 rounded-lg bg-[hsl(var(--muted))]"
-                    >
-                      <div className="flex items-center gap-3">
-                        <div className={`w-8 h-8 rounded-full flex items-center justify-center ${
-                          isGiris ? 'bg-green-500/10' : 'bg-red-500/10'
-                        }`}>
-                          <span className={`text-sm font-bold ${isGiris ? 'text-green-500' : 'text-red-500'}`}>
-                            {isGiris ? '+' : '-'}
-                          </span>
-                        </div>
-                        <div>
-                          <div className="font-medium text-sm text-[hsl(var(--foreground))]">
-                            {malzeme?.ad || 'Bilinmeyen'}
-                          </div>
-                          <div className="text-xs text-[hsl(var(--muted-foreground))]">
-                            {magaza?.magazaAdi || 'Bilinmeyen'}
-                          </div>
-                        </div>
-                      </div>
-                      <div className="text-right">
-                        <div className={`text-sm font-medium ${isGiris ? 'text-green-600' : 'text-red-600'}`}>
-                          {isGiris ? '+' : '-'}{hareket.miktar}
-                        </div>
-                        <div className="text-xs text-[hsl(var(--muted-foreground))]">
-                          {formatDate(hareket.tarih)}
-                        </div>
-                      </div>
-                    </div>
-                  )
-                })}
-              </div>
-            )}
-          </div>
-        </div>
-      </div>
 
       {/* Özet Bilgi */}
       <div className="mt-6 bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] p-6">

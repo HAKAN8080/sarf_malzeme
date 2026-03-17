@@ -24,9 +24,9 @@ export default function IhtiyacPage() {
   const [durumFiltresi, setDurumFiltresi] = useState<'hepsi' | 'sevkiyat_var' | 'sevkiyat_ihtiyac' | 'kritik' | 'uyari'>('hepsi')
   const [activeTab, setActiveTab] = useState<'magaza' | 'uretim'>('magaza')
 
-  // Aktif mağaza ve malzemeler
-  const aktivMagazalar = magazalar.filter(m => m.aktif)
-  const aktivMalzemeler = malzemeler.filter(m => m.aktif)
+  // Aktif mağaza ve malzemeler (useMemo ile optimize)
+  const aktivMagazalar = useMemo(() => magazalar.filter(m => m.aktif), [magazalar])
+  const aktivMalzemeler = useMemo(() => malzemeler.filter(m => m.aktif), [malzemeler])
 
   // Veri setindeki en son hafta bilgisini al (bugünü değil, verideki son haftayı kullan)
   const getLatestWeekFromData = () => {
