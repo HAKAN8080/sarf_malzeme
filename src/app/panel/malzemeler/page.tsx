@@ -182,26 +182,77 @@ export default function MalzemelerPage() {
     const lines = text.split('\n').filter(line => line.trim())
     if (lines.length < 2) return { data: [], errors: ['CSV dosyası boş veya sadece başlık içeriyor'] }
 
-    const headers = lines[0].split(',').map(h => h.replace(/"/g, '').trim().toLowerCase().replace(/\s+/g, '_'))
+    // Otomatik ayraç tespiti (virgül veya noktalı virgül)
+    const firstLine = lines[0].replace(/^\uFEFF/, '') // BOM karakterini temizle
+    const delimiter = firstLine.includes(';') ? ';' : ','
+
+    // Header'ları normalize et (Türkçe karakterler, boşluklar -> alt çizgi)
+    const normalizeHeader = (h: string) => {
+      return h
+        .replace(/"/g, '')
+        .trim()
+        .toLowerCase()
+        .replace(/ı/g, 'i')
+        .replace(/ğ/g, 'g')
+        .replace(/ü/g, 'u')
+        .replace(/ş/g, 's')
+        .replace(/ö/g, 'o')
+        .replace(/ç/g, 'c')
+        .replace(/\s+/g, '_')
+        .replace(/%/g, '')
+    }
+
+    const headers = firstLine.split(delimiter).map(normalizeHeader)
     const data: Partial<Malzeme>[] = []
     const errors: string[] = []
 
-    for (let i = 1; i < lines.length; i++) {
-      const values: string[] = []
-      let current = ''
-      let inQuotes = false
-
-      for (const char of lines[i]) {
-        if (char === '"') {
-          inQuotes = !inQuotes
-        } else if (char === ',' && !inQuotes) {
-          values.push(current.trim())
-          current = ''
-        } else {
-          current += char
+    // Türkçe sayı formatını parse et (342.001 -> 342001, 50.000 -> 50000)
+    const parseTurkishNumber = (val: string): number => {
+      if (!val) return 0
+      // Boşlukları temizle
+      let cleaned = val.trim().replace(/\s/g, '')
+      // Tire veya boş ise 0 döndür
+      if (cleaned === '-' || cleaned === '') return 0
+      // Türkçe binlik ayracı (nokta) ve ondalık (virgül) formatı
+      // Eğer hem nokta hem virgül varsa: 1.234,56 formatı
+      if (cleaned.includes('.') && cleaned.includes(',')) {
+        cleaned = cleaned.replace(/\./g, '').replace(',', '.')
+      } else if (cleaned.includes(',')) {
+        // Sadece virgül varsa ondalık ayracı
+        cleaned = cleaned.replace(',', '.')
+      } else if (cleaned.includes('.')) {
+        // Sadece nokta varsa ve 3'er basamaklı gruplar halindeyse binlik ayracı
+        const parts = cleaned.split('.')
+        if (parts.length > 1 && parts.slice(1).every(p => p.length === 3)) {
+          cleaned = cleaned.replace(/\./g, '')
         }
       }
-      values.push(current.trim())
+      return parseFloat(cleaned) || 0
+    }
+
+    for (let i = 1; i < lines.length; i++) {
+      let values: string[]
+
+      if (delimiter === ';') {
+        values = lines[i].split(';').map(v => v.replace(/"/g, '').trim())
+      } else {
+        // Virgül için tırnak içi virgülleri koru
+        const tempValues: string[] = []
+        let current = ''
+        let inQuotes = false
+        for (const char of lines[i]) {
+          if (char === '"') {
+            inQuotes = !inQuotes
+          } else if (char === ',' && !inQuotes) {
+            tempValues.push(current.trim())
+            current = ''
+          } else {
+            current += char
+          }
+        }
+        tempValues.push(current.trim())
+        values = tempValues
+      }
 
       if (values.length < 3) {
         errors.push(`Satır ${i + 1}: Yetersiz veri`)
@@ -215,9 +266,10 @@ export default function MalzemelerPage() {
 
       const getNum = (key: string) => {
         const val = getVal(key)
-        return val ? parseFloat(val) || 0 : 0
+        return parseTurkishNumber(val)
       }
 
+      // Farklı header isimlerini destekle
       const malzemeKodu = getVal('malzeme_kodu') || getVal('kod')
       const ad = getVal('ad') || getVal('malzeme_adi')
 
@@ -230,7 +282,7 @@ export default function MalzemelerPage() {
       const tetikleyici = tetikleyiciVal || 'Manuel'
 
       const stokTakipVal = getVal('stok_takip')
-      const stokTakip: 'Var' | 'Yok' = stokTakipVal.toLowerCase() === 'yok' ? 'Yok' : 'Var'
+      const stokTakip: 'Var' | 'Yok' = stokTakipVal.toLowerCase() === 'hayir' || stokTakipVal.toLowerCase() === 'yok' ? 'Yok' : 'Var'
 
       data.push({
         malzemeKodu,
@@ -243,7 +295,7 @@ export default function MalzemelerPage() {
         stokTakip,
         birimTuketimBirim: getVal('birim_tuketim_birim') || getVal('birim') || 'adet',
         birimTuketimMiktar: getNum('birim_tuketim_miktar') || getNum('birim_tuketim') || 1,
-        fireOrani: getNum('fire_orani') || getNum('fire'),
+        fireOrani: getNum('fire_orani') || getNum('fire_'),
         innerBox: getNum('inner_box'),
         koliIci: getNum('koli_ici'),
         toplamPaketBirimMiktar: getNum('toplam_paket_birim_miktar') || getNum('toplam_paket'),
@@ -267,14 +319,14 @@ export default function MalzemelerPage() {
     if (!file) return
 
     const reader = new FileReader()
-    reader.onload = (event) => {
+    reader.onload = async (event) => {
       const text = event.target?.result as string
       const { data, errors } = parseCSV(text)
 
       let successCount = 0
       for (const malzeme of data) {
         try {
-          addMalzeme(malzeme as Omit<Malzeme, 'id' | 'createdAt' | 'updatedAt'>)
+          await addMalzeme(malzeme as Omit<Malzeme, 'id' | 'createdAt' | 'updatedAt'>)
           successCount++
         } catch {
           errors.push(`${malzeme.malzemeKodu}: Eklenemedi`)
