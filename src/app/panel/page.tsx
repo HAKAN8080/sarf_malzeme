@@ -16,13 +16,23 @@ export default function DashboardPage() {
 
   // Calculate statistics
   const stats = useMemo(() => {
-    // Toplam stok değeri ve satış
-    const toplamStokDegeri = stokSatislar.reduce((sum, s) => sum + (s.stokTutar || 0), 0)
-    const toplamCiro = stokSatislar.reduce((sum, s) => sum + (s.ciro || 0), 0)
-    const toplamSatis = stokSatislar.reduce((sum, s) => sum + (s.satis || 0), 0)
+    // Aktif mağazaların kodlarını al
+    const aktiveMagazaKodlari = new Set(
+      magazalar.filter(m => m.aktif).map(m => m.magazaKodu)
+    )
 
-    // Son hareketler
+    // Sadece aktif mağazaların stok/satış verilerini hesapla
+    const aktifStokSatislar = stokSatislar.filter(s => aktiveMagazaKodlari.has(s.magazaKodu))
+
+    // Toplam stok değeri ve satış (sadece aktif mağazalar)
+    const toplamStokDegeri = aktifStokSatislar.reduce((sum, s) => sum + (s.stokTutar || 0), 0)
+    const toplamCiro = aktifStokSatislar.reduce((sum, s) => sum + (s.ciro || 0), 0)
+    const toplamSatis = aktifStokSatislar.reduce((sum, s) => sum + (s.satis || 0), 0)
+
+    // Son hareketler (sadece aktif mağazalar)
+    const aktiveMagazaIds = new Set(magazalar.filter(m => m.aktif).map(m => m.id))
     const sonHareketler = [...hareketler]
+      .filter(h => aktiveMagazaIds.has(h.magazaId))
       .sort((a, b) => new Date(b.tarih).getTime() - new Date(a.tarih).getTime())
       .slice(0, 5)
 
@@ -36,11 +46,19 @@ export default function DashboardPage() {
     }
   }, [malzemeler, magazalar, stokSatislar, hareketler])
 
-  // Get top satış by mağaza
+  // Get top satış by mağaza (sadece aktif ve mevcut mağazalar)
   const topMagazalar = useMemo(() => {
+    // Aktif mağazaların kodlarını al
+    const aktiveMagazaKodlari = new Set(
+      magazalar.filter(m => m.aktif).map(m => m.magazaKodu)
+    )
+
     const magazaSatislar: Record<string, { magazaAdi: string; ciro: number; satis: number }> = {}
 
     stokSatislar.forEach(s => {
+      // Sadece aktif mağazaların verilerini göster
+      if (!aktiveMagazaKodlari.has(s.magazaKodu)) return
+
       if (!magazaSatislar[s.magazaKodu]) {
         magazaSatislar[s.magazaKodu] = { magazaAdi: s.magazaAdi, ciro: 0, satis: 0 }
       }
@@ -52,7 +70,7 @@ export default function DashboardPage() {
       .sort((a, b) => b[1].ciro - a[1].ciro)
       .slice(0, 5)
       .map(([kod, data]) => ({ magazaKodu: kod, ...data }))
-  }, [stokSatislar])
+  }, [stokSatislar, magazalar])
 
   const formatCurrency = (value: number) => {
     return new Intl.NumberFormat('tr-TR', {
