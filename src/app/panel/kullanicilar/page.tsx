@@ -13,8 +13,7 @@ import {
   Shield,
   ShieldCheck,
   Store,
-  Eye,
-  EyeOff,
+  AlertCircle,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import type { Kullanici } from '@/lib/types'
@@ -26,7 +25,8 @@ export default function KullanicilarPage() {
   const [showModal, setShowModal] = useState(false)
   const [editingKullanici, setEditingKullanici] = useState<Kullanici | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
-  const [showPassword, setShowPassword] = useState(false)
+  const [formError, setFormError] = useState<string | null>(null)
+  const [isSubmitting, setIsSubmitting] = useState(false)
 
   // Admin kontrolü
   if (session?.rol !== 'admin') {
@@ -37,7 +37,6 @@ export default function KullanicilarPage() {
   // Form state
   const [formData, setFormData] = useState({
     email: '',
-    password: '',
     ad: '',
     rol: 'yonetici' as 'admin' | 'yonetici' | 'magaza',
     aktif: true,
@@ -57,12 +56,11 @@ export default function KullanicilarPage() {
     setEditingKullanici(null)
     setFormData({
       email: '',
-      password: '',
       ad: '',
       rol: 'yonetici',
       aktif: true,
     })
-    setShowPassword(false)
+    setFormError(null)
     setShowModal(true)
   }
 
@@ -70,17 +68,19 @@ export default function KullanicilarPage() {
     setEditingKullanici(kullanici)
     setFormData({
       email: kullanici.email,
-      password: kullanici.password || '',
       ad: kullanici.ad,
       rol: kullanici.rol,
       aktif: kullanici.aktif,
     })
-    setShowPassword(false)
+    setFormError(null)
     setShowModal(true)
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
+    setFormError(null)
+    setIsSubmitting(true)
+
     try {
       if (editingKullanici) {
         await updateKullanici(editingKullanici.id, formData)
@@ -88,8 +88,15 @@ export default function KullanicilarPage() {
         await addKullanici(formData)
       }
       setShowModal(false)
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error saving kullanici:', error)
+      if (error instanceof Error) {
+        setFormError(error.message)
+      } else {
+        setFormError('Kullanıcı kaydedilirken bir hata oluştu')
+      }
+    } finally {
+      setIsSubmitting(false)
     }
   }
 
@@ -241,6 +248,20 @@ export default function KullanicilarPage() {
               </button>
             </div>
             <form onSubmit={handleSubmit} className="p-6 space-y-4">
+              {formError && (
+                <div className="flex items-center gap-2 p-3 rounded-lg bg-red-50 dark:bg-red-900/10 text-red-600 dark:text-red-400 text-sm">
+                  <AlertCircle className="h-4 w-4 flex-shrink-0" />
+                  {formError}
+                </div>
+              )}
+
+              {!editingKullanici && (
+                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 text-sm">
+                  Yeni kullanıcı Firebase Console &gt; Authentication &gt; Users üzerinden eklenmeli.
+                  Burada sadece rol ve bilgiler kaydedilir.
+                </div>
+              )}
+
               <div>
                 <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">Ad Soyad *</label>
                 <input
@@ -259,29 +280,11 @@ export default function KullanicilarPage() {
                   onChange={(e) => setFormData({ ...formData, email: e.target.value })}
                   className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]"
                   required
+                  disabled={!!editingKullanici}
                 />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">
-                  Şifre {editingKullanici ? '' : '*'}
-                </label>
-                <div className="relative">
-                  <input
-                    type={showPassword ? 'text' : 'password'}
-                    value={formData.password}
-                    onChange={(e) => setFormData({ ...formData, password: e.target.value })}
-                    className="w-full px-3 py-2 pr-10 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]"
-                    required={!editingKullanici}
-                    placeholder={editingKullanici ? 'Değiştirmek için yeni şifre girin' : ''}
-                  />
-                  <button
-                    type="button"
-                    onClick={() => setShowPassword(!showPassword)}
-                    className="absolute right-3 top-1/2 -translate-y-1/2 text-[hsl(var(--muted-foreground))] hover:text-[hsl(var(--foreground))]"
-                  >
-                    {showPassword ? <EyeOff className="h-4 w-4" /> : <Eye className="h-4 w-4" />}
-                  </button>
-                </div>
+                {editingKullanici && (
+                  <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">Email değiştirilemez</p>
+                )}
               </div>
               <div>
                 <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">Rol *</label>
@@ -310,16 +313,18 @@ export default function KullanicilarPage() {
                 <button
                   type="button"
                   onClick={() => setShowModal(false)}
-                  className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))] transition-colors"
+                  disabled={isSubmitting}
+                  className="px-4 py-2 rounded-lg border border-[hsl(var(--border))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))] transition-colors disabled:opacity-50"
                 >
                   İptal
                 </button>
                 <button
                   type="submit"
-                  className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-white rounded-lg hover:opacity-90 transition-opacity"
+                  disabled={isSubmitting}
+                  className="flex items-center gap-2 px-4 py-2 bg-[hsl(var(--primary))] text-white rounded-lg hover:opacity-90 transition-opacity disabled:opacity-50"
                 >
                   <Save className="h-4 w-4" />
-                  {editingKullanici ? 'Güncelle' : 'Kaydet'}
+                  {isSubmitting ? 'Kaydediliyor...' : (editingKullanici ? 'Güncelle' : 'Kaydet')}
                 </button>
               </div>
             </form>
