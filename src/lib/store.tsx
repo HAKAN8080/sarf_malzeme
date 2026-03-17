@@ -62,11 +62,16 @@ interface StoreContextType {
   // Cluster Ayar actions
   updateClusterAyar: (cluster: string, yolSuresi: number) => Promise<void>
 
+  // Kullanici actions
+  addKullanici: (kullanici: Omit<Kullanici, 'id' | 'createdAt'>) => Promise<void>
+  updateKullanici: (id: string, kullanici: Partial<Kullanici>) => Promise<void>
+  deleteKullanici: (id: string) => Promise<void>
+
   // Refresh data from Firestore
   refreshData: () => Promise<void>
 
   // Auth actions
-  login: (email: string, password: string) => boolean
+  login: (email: string, password: string) => Promise<boolean>
   logout: () => void
 }
 
@@ -322,26 +327,76 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }
 
-  // Auth actions
-  const login = (email: string, password: string): boolean => {
-    // Yetkili kullanıcılar
-    const accounts = [
-      { email: 'siriusdanismanlik.tr@gmail.com', password: 'admin.1903', ad: 'Admin', rol: 'admin' as const },
-    ]
+  // Kullanici actions
+  const addKullanici = async (kullanici: Omit<Kullanici, 'id' | 'createdAt'>) => {
+    try {
+      const id = await firestore.addKullanici(kullanici)
+      const newKullanici: Kullanici = {
+        ...kullanici,
+        id,
+        createdAt: new Date().toISOString(),
+      }
+      setKullanicilar(prev => [...prev, newKullanici])
+    } catch (error) {
+      console.error('Error adding kullanici:', error)
+      throw error
+    }
+  }
 
-    const account = accounts.find(a => a.email === email && a.password === password)
-    if (account) {
+  const updateKullanici = async (id: string, updates: Partial<Kullanici>) => {
+    try {
+      await firestore.updateKullanici(id, updates)
+      setKullanicilar(prev =>
+        prev.map(k => (k.id === id ? { ...k, ...updates } : k))
+      )
+    } catch (error) {
+      console.error('Error updating kullanici:', error)
+      throw error
+    }
+  }
+
+  const deleteKullanici = async (id: string) => {
+    try {
+      await firestore.deleteKullanici(id)
+      setKullanicilar(prev => prev.filter(k => k.id !== id))
+    } catch (error) {
+      console.error('Error deleting kullanici:', error)
+      throw error
+    }
+  }
+
+  // Auth actions
+  const login = async (email: string, password: string): Promise<boolean> => {
+    // Önce Firestore'daki kullanıcıları kontrol et
+    const kullanici = kullanicilar.find(k => k.email === email && k.password === password && k.aktif)
+
+    if (kullanici) {
       const newSession: Session = {
-        userId: Date.now().toString(),
-        email: account.email,
-        ad: account.ad,
-        rol: account.rol,
+        userId: kullanici.id,
+        email: kullanici.email,
+        ad: kullanici.ad,
+        rol: kullanici.rol,
         loginTime: new Date().toISOString(),
       }
       setSession(newSession)
       localStorage.setItem(SESSION_KEY, JSON.stringify(newSession))
       return true
     }
+
+    // Fallback: Hardcoded admin (ilk kullanıcı ekleme için)
+    if (email === 'siriusdanismanlik.tr@gmail.com' && password === 'admin.1903') {
+      const newSession: Session = {
+        userId: 'admin-fallback',
+        email: email,
+        ad: 'Admin',
+        rol: 'admin',
+        loginTime: new Date().toISOString(),
+      }
+      setSession(newSession)
+      localStorage.setItem(SESSION_KEY, JSON.stringify(newSession))
+      return true
+    }
+
     return false
   }
 
@@ -373,6 +428,9 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         deleteStokSatis,
         bulkUpsertStokSatis,
         updateClusterAyar,
+        addKullanici,
+        updateKullanici,
+        deleteKullanici,
         refreshData,
         login,
         logout,

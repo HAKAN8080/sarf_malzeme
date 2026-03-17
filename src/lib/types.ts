@@ -153,6 +153,7 @@ export interface UretimOzeti {
 export interface Kullanici {
   id: string
   email: string
+  password: string // Şifre
   ad: string
   rol: 'admin' | 'yonetici' | 'magaza'
   magazaId?: string // Sadece mağaza rolü için

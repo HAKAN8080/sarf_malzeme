@@ -18,17 +18,19 @@ import {
   User,
   Loader2,
   ArrowLeftRight,
+  Users,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 
 const sidebarItems = [
-  { name: 'Dashboard', href: '/panel', icon: LayoutDashboard },
-  { name: 'Malzemeler', href: '/panel/malzemeler', icon: Package },
-  { name: 'Mağazalar', href: '/panel/magazalar', icon: Store },
-  { name: 'Stok & Satış', href: '/panel/stok-satis', icon: ClipboardList },
-  { name: 'İhtiyaç Planlama', href: '/panel/ihtiyac', icon: BarChart3 },
-  { name: 'Hareketler', href: '/panel/hareketler', icon: ArrowLeftRight },
-  { name: 'Ayarlar', href: '/panel/ayarlar', icon: Settings },
+  { name: 'Dashboard', href: '/panel', icon: LayoutDashboard, adminOnly: false },
+  { name: 'Malzemeler', href: '/panel/malzemeler', icon: Package, adminOnly: false },
+  { name: 'Mağazalar', href: '/panel/magazalar', icon: Store, adminOnly: false },
+  { name: 'Stok & Satış', href: '/panel/stok-satis', icon: ClipboardList, adminOnly: false },
+  { name: 'İhtiyaç Planlama', href: '/panel/ihtiyac', icon: BarChart3, adminOnly: false },
+  { name: 'Hareketler', href: '/panel/hareketler', icon: ArrowLeftRight, adminOnly: false },
+  { name: 'Ayarlar', href: '/panel/ayarlar', icon: Settings, adminOnly: false },
+  { name: 'Kullanıcı Yönetimi', href: '/panel/kullanicilar', icon: Users, adminOnly: true },
 ]
 
 export default function PanelLayout({
@@ -122,27 +124,29 @@ export default function PanelLayout({
 
         {/* Navigation */}
         <nav className="p-3 space-y-1">
-          {sidebarItems.map((item) => {
-            const isActive = pathname === item.href || (item.href !== '/panel' && pathname.startsWith(item.href))
-            const Icon = item.icon
+          {sidebarItems
+            .filter(item => !item.adminOnly || session.rol === 'admin')
+            .map((item) => {
+              const isActive = pathname === item.href || (item.href !== '/panel' && pathname.startsWith(item.href))
+              const Icon = item.icon
 
-            return (
-              <Link
-                key={item.name}
-                href={item.href}
-                onClick={() => setSidebarOpen(false)}
-                className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
-                  isActive
-                    ? 'bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]'
-                    : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]'
-                }`}
-              >
-                <Icon className="h-4 w-4" />
-                <span className="text-sm font-medium">{item.name}</span>
-                {isActive && <ChevronRight className="h-4 w-4 ml-auto" />}
-              </Link>
-            )
-          })}
+              return (
+                <Link
+                  key={item.name}
+                  href={item.href}
+                  onClick={() => setSidebarOpen(false)}
+                  className={`flex items-center gap-3 px-3 py-2.5 rounded-lg transition-colors ${
+                    isActive
+                      ? 'bg-[hsl(var(--primary))]/10 text-[hsl(var(--primary))]'
+                      : 'text-[hsl(var(--muted-foreground))] hover:bg-[hsl(var(--accent))] hover:text-[hsl(var(--foreground))]'
+                  }`}
+                >
+                  <Icon className="h-4 w-4" />
+                  <span className="text-sm font-medium">{item.name}</span>
+                  {isActive && <ChevronRight className="h-4 w-4 ml-auto" />}
+                </Link>
+              )
+            })}
         </nav>
 
         {/* User Info & Logout */}

@@ -328,6 +328,10 @@ export const updateKullanici = async (id: string, updates: Partial<Kullanici>): 
   await updateDoc(docRef, updates)
 }
 
+export const deleteKullanici = async (id: string): Promise<void> => {
+  await deleteDoc(doc(db, COLLECTIONS.KULLANICILAR, id))
+}
+
 // ==================== KATEGORILER ====================
 
 export const getKategoriler = async (): Promise<Kategori[]> => {

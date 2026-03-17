@@ -19,10 +19,8 @@ export default function GirisPage() {
     setError('')
     setLoading(true)
 
-    // Simulate network delay
-    await new Promise(resolve => setTimeout(resolve, 500))
-
-    const success = login(email, password)
+    // Login işlemi
+    const success = await login(email, password)
     if (success) {
       router.push('/panel')
     } else {
