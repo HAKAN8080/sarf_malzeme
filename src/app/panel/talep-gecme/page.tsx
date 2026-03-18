@@ -209,6 +209,8 @@ export default function TalepGecmePage() {
           <h1 className="text-2xl font-bold text-[hsl(var(--foreground))]">Talep Geçme</h1>
           <p className="text-sm text-[hsl(var(--muted-foreground))]">
             {userMagaza.magazaAdi} ({userMagaza.magazaKodu}) - Hafta {currentHafta}/{currentYil}
+            {stokSatislar.length === 0 && ' • Stok-Satış verisi yok'}
+            {stokSatislar.length > 0 && stokSatisIndex.size === 0 && ` • Bu mağaza için veri yok (toplam ${stokSatislar.length} kayıt)`}
           </p>
         </div>
         <button

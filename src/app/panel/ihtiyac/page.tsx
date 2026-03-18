@@ -14,15 +14,15 @@ import {
   Package,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
-import type { IhtiyacSonuc, UretimOzeti, StokSatis } from '@/lib/types'
+import type { IhtiyacSonuc, UretimOzeti, StokSatis, MagazaSevkiyat } from '@/lib/types'
 
 export default function IhtiyacPage() {
-  const { malzemeler, magazalar, stokSatislar } = useStore()
+  const { malzemeler, magazalar, stokSatislar, magazaSevkiyatlar } = useStore()
   const [selectedMagaza, setSelectedMagaza] = useState('')
   const [selectedMalzeme, setSelectedMalzeme] = useState('')
   const [guvenlikKatsayisi, setGuvenlikKatsayisi] = useState(1.0)
   const [durumFiltresi, setDurumFiltresi] = useState<'hepsi' | 'sevkiyat_var' | 'sevkiyat_ihtiyac' | 'kritik' | 'uyari'>('hepsi')
-  const [activeTab, setActiveTab] = useState<'magaza' | 'uretim'>('magaza')
+  const [activeTab, setActiveTab] = useState<'magaza' | 'uretim' | 'sevkiyat'>('magaza')
 
   // Aktif mağaza ve malzemeler (useMemo ile optimize)
   const aktivMagazalar = useMemo(() => magazalar.filter(m => m.aktif), [magazalar])
@@ -407,6 +407,30 @@ export default function IhtiyacPage() {
     return { kritikCount, uyariCount, yeterliCount, toplamSevkiyat, toplamUretim, acilUretim }
   }, [ihtiyaclar, uretimOzetleri])
 
+  // Mağaza Sevkiyat listesi (onaylı talepler + hesaplama)
+  const filteredSevkiyatlar = useMemo(() => {
+    return magazaSevkiyatlar
+      .filter(s => {
+        // Mağaza filtresi
+        if (selectedMagaza) {
+          const magaza = aktivMagazalar.find(m => m.id === selectedMagaza)
+          if (magaza && s.magazaKodu !== magaza.magazaKodu) return false
+        }
+        // Malzeme filtresi
+        if (selectedMalzeme) {
+          const malzeme = aktivMalzemeler.find(m => m.id === selectedMalzeme)
+          if (malzeme && s.malzemeKodu !== malzeme.malzemeKodu) return false
+        }
+        return true
+      })
+      .sort((a, b) => {
+        // Önce talep kaynaklılar, sonra tarihe göre
+        if (a.kaynak === 'talep' && b.kaynak !== 'talep') return -1
+        if (a.kaynak !== 'talep' && b.kaynak === 'talep') return 1
+        return new Date(b.createdAt).getTime() - new Date(a.createdAt).getTime()
+      })
+  }, [magazaSevkiyatlar, selectedMagaza, selectedMalzeme, aktivMagazalar, aktivMalzemeler])
+
   // Top 10 Malzeme özeti (mağaza bazlı değil, toplam değerler)
   const top10Malzemeler = useMemo(() => {
     // Malzeme bazlı toplamları hesapla
@@ -720,7 +744,18 @@ export default function IhtiyacPage() {
       </div>
 
       {/* Tabs */}
-      <div className="flex gap-2 mb-4">
+      <div className="flex gap-2 mb-4 flex-wrap">
+        <button
+          onClick={() => setActiveTab('sevkiyat')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'sevkiyat'
+              ? 'bg-green-500 text-white'
+              : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))]'
+          }`}
+        >
+          <ShoppingCart className="h-4 w-4" />
+          Sevkiyat Emri ({filteredSevkiyatlar.length})
+        </button>
         <button
           onClick={() => setActiveTab('magaza')}
           className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
@@ -730,7 +765,7 @@ export default function IhtiyacPage() {
           }`}
         >
           <Truck className="h-4 w-4" />
-          Mağaza Sevkiyat ({filteredIhtiyaclar.length})
+          İhtiyaç Hesaplama ({filteredIhtiyaclar.length})
         </button>
         <button
           onClick={() => setActiveTab('uretim')}
@@ -891,6 +926,84 @@ export default function IhtiyacPage() {
                       <td className="px-4 py-3 text-right whitespace-nowrap text-[hsl(var(--muted-foreground))]">{u.minSiparisMiktari.toLocaleString('tr-TR')}</td>
                       <td className="px-4 py-3 text-right whitespace-nowrap text-[hsl(var(--muted-foreground))]">{u.tedarikSuresi}h</td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">{getUretimDurumBadge(u.durum)}</td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
+
+      {/* Sevkiyat Emri Tablosu */}
+      {activeTab === 'sevkiyat' && (
+        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[hsl(var(--border))] bg-[hsl(var(--muted))]">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Mağaza</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Malzeme</th>
+                  <th className="text-center px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase bg-green-50 dark:bg-green-900/10">Sevk Miktarı</th>
+                  <th className="text-center px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Kaynak</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Stok</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Satış</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Yol</th>
+                  <th className="text-right px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Depo</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Tarih</th>
+                </tr>
+              </thead>
+              <tbody>
+                {filteredSevkiyatlar.length === 0 ? (
+                  <tr>
+                    <td colSpan={9} className="px-4 py-12 text-center text-[hsl(var(--muted-foreground))]">
+                      <ShoppingCart className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Sevkiyat emri bulunamadı</p>
+                      <p className="text-xs mt-1">Onaylanan talepler ve hesaplanan sevkiyatlar burada görünecek</p>
+                    </td>
+                  </tr>
+                ) : (
+                  filteredSevkiyatlar.map((s) => (
+                    <tr
+                      key={s.id}
+                      className={`border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] ${
+                        s.kaynak === 'talep' ? 'bg-green-50/30 dark:bg-green-900/5' : ''
+                      }`}
+                    >
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="font-medium">{s.magazaAdi}</div>
+                        <div className="text-xs text-[hsl(var(--muted-foreground))]">{s.magazaKodu}</div>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap">
+                        <div className="font-medium">{s.malzemeAdi}</div>
+                        <div className="text-xs text-[hsl(var(--muted-foreground))]">{s.malzemeKodu}</div>
+                      </td>
+                      <td className="px-4 py-3 text-center bg-green-50/50 dark:bg-green-900/5">
+                        <span className="inline-flex items-center justify-center min-w-[4rem] h-8 rounded-lg bg-green-500/10 text-green-600 font-bold">
+                          {s.sevkMiktari.toLocaleString('tr-TR')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        {s.kaynak === 'talep' ? (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-blue-100 text-blue-700 dark:bg-blue-900/20 dark:text-blue-400">
+                            <ShoppingCart className="h-3 w-3" />
+                            Talep
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-gray-100 text-gray-700 dark:bg-gray-800 dark:text-gray-400">
+                            <BarChart3 className="h-3 w-3" />
+                            Hesaplama
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">{s.sonHaftaStok.toLocaleString('tr-TR')}</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">{s.sonHaftaSatis.toLocaleString('tr-TR')}</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap text-[hsl(var(--muted-foreground))]">{s.yoldakiMiktar.toLocaleString('tr-TR')}</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap">{s.depoStok.toLocaleString('tr-TR')}</td>
+                      <td className="px-4 py-3 whitespace-nowrap text-sm text-[hsl(var(--muted-foreground))]">
+                        {new Date(s.createdAt).toLocaleDateString('tr-TR')}
+                        <div className="text-xs">{s.olusturanAd}</div>
+                      </td>
                     </tr>
                   ))
                 )}
