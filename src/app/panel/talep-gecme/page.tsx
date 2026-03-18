@@ -10,6 +10,10 @@ import {
   CheckCircle,
   Loader2,
   Info,
+  Clock,
+  XCircle,
+  ClipboardList,
+  Plus,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import type { StokSatis } from '@/lib/types'
@@ -30,6 +34,7 @@ export default function TalepGecmePage() {
   const [submitting, setSubmitting] = useState(false)
   const [successMessage, setSuccessMessage] = useState('')
   const [errorMessage, setErrorMessage] = useState('')
+  const [activeTab, setActiveTab] = useState<'yeni' | 'taleplerim'>('yeni')
 
   // Kullanıcının mağaza bilgisini al
   const kullanici = kullanicilar.find(k => k.id === session?.userId)
@@ -106,6 +111,22 @@ export default function TalepGecmePage() {
     if (!userMagaza) return []
     return talepler.filter(t => t.magazaKodu === userMagaza.magazaKodu && t.durum === 'beklemede')
   }, [talepler, userMagaza])
+
+  // Tüm taleplerim (tarih sıralı)
+  const tumTalepler = useMemo(() => {
+    if (!userMagaza) return []
+    return talepler
+      .filter(t => t.magazaKodu === userMagaza.magazaKodu)
+      .sort((a, b) => new Date(b.talepTarihi).getTime() - new Date(a.talepTarihi).getTime())
+  }, [talepler, userMagaza])
+
+  // Talep özeti
+  const talepOzeti = useMemo(() => {
+    const beklemede = tumTalepler.filter(t => t.durum === 'beklemede').length
+    const onaylandi = tumTalepler.filter(t => t.durum === 'onaylandi').length
+    const reddedildi = tumTalepler.filter(t => t.durum === 'reddedildi').length
+    return { beklemede, onaylandi, reddedildi }
+  }, [tumTalepler])
 
   // Talep miktarı değişikliği
   const handleMiktarChange = (malzemeKodu: string, miktar: number) => {
@@ -242,18 +263,72 @@ export default function TalepGecmePage() {
         </div>
       )}
 
-      {/* Bekleyen Talepler Uyarısı */}
-      {bekleyenTalepler.length > 0 && (
-        <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/20 rounded-lg flex items-center gap-3">
-          <Info className="h-5 w-5 text-blue-500" />
-          <span className="text-blue-700 dark:text-blue-400">
-            {bekleyenTalepler.length} adet bekleyen talebiniz bulunmaktadır.
-          </span>
+      {/* Tabs */}
+      <div className="flex gap-2 mb-4">
+        <button
+          onClick={() => setActiveTab('yeni')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'yeni'
+              ? 'bg-[hsl(var(--primary))] text-white'
+              : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))]'
+          }`}
+        >
+          <Plus className="h-4 w-4" />
+          Yeni Talep
+        </button>
+        <button
+          onClick={() => setActiveTab('taleplerim')}
+          className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors ${
+            activeTab === 'taleplerim'
+              ? 'bg-[hsl(var(--primary))] text-white'
+              : 'bg-[hsl(var(--muted))] text-[hsl(var(--foreground))] hover:bg-[hsl(var(--accent))]'
+          }`}
+        >
+          <ClipboardList className="h-4 w-4" />
+          Taleplerim ({tumTalepler.length})
+        </button>
+      </div>
+
+      {/* Taleplerim Özet */}
+      {activeTab === 'taleplerim' && (
+        <div className="grid grid-cols-3 gap-4 mb-4">
+          <div className="bg-yellow-50 dark:bg-yellow-900/10 rounded-xl p-4 border border-yellow-200 dark:border-yellow-900/20">
+            <div className="flex items-center gap-2 text-yellow-600 mb-1">
+              <Clock className="h-4 w-4" />
+              <span className="text-xs font-medium">Beklemede</span>
+            </div>
+            <div className="text-2xl font-bold text-yellow-700 dark:text-yellow-400">{talepOzeti.beklemede}</div>
+          </div>
+          <div className="bg-green-50 dark:bg-green-900/10 rounded-xl p-4 border border-green-200 dark:border-green-900/20">
+            <div className="flex items-center gap-2 text-green-600 mb-1">
+              <CheckCircle className="h-4 w-4" />
+              <span className="text-xs font-medium">Onaylanan</span>
+            </div>
+            <div className="text-2xl font-bold text-green-700 dark:text-green-400">{talepOzeti.onaylandi}</div>
+          </div>
+          <div className="bg-red-50 dark:bg-red-900/10 rounded-xl p-4 border border-red-200 dark:border-red-900/20">
+            <div className="flex items-center gap-2 text-red-600 mb-1">
+              <XCircle className="h-4 w-4" />
+              <span className="text-xs font-medium">Reddedilen</span>
+            </div>
+            <div className="text-2xl font-bold text-red-700 dark:text-red-400">{talepOzeti.reddedildi}</div>
+          </div>
         </div>
       )}
 
-      {/* Search */}
-      <div className="mb-4">
+      {/* Yeni Talep - Search */}
+      {activeTab === 'yeni' && (
+        <>
+        {/* Bekleyen Talepler Uyarısı */}
+        {bekleyenTalepler.length > 0 && (
+          <div className="mb-4 p-4 bg-blue-50 dark:bg-blue-900/10 border border-blue-200 dark:border-blue-900/20 rounded-lg flex items-center gap-3">
+            <Info className="h-5 w-5 text-blue-500" />
+            <span className="text-blue-700 dark:text-blue-400">
+              {bekleyenTalepler.length} adet bekleyen talebiniz bulunmaktadır.
+            </span>
+          </div>
+        )}
+        <div className="mb-4">
         <div className="relative">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-[hsl(var(--muted-foreground))]" />
           <input
@@ -350,9 +425,123 @@ export default function TalepGecmePage() {
           </table>
         </div>
       </div>
+      </>
+      )}
+
+      {/* Taleplerim Tablosu */}
+      {activeTab === 'taleplerim' && (
+        <div className="bg-[hsl(var(--card))] rounded-xl border border-[hsl(var(--border))] overflow-hidden">
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="border-b border-[hsl(var(--border))] bg-[hsl(var(--muted))]">
+                  <th className="text-left px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Malzeme</th>
+                  <th className="text-center px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Talep Miktarı</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Talep Tarihi</th>
+                  <th className="text-center px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Durum</th>
+                  <th className="text-left px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Yanıt</th>
+                </tr>
+              </thead>
+              <tbody>
+                {tumTalepler.length === 0 ? (
+                  <tr>
+                    <td colSpan={5} className="px-4 py-12 text-center text-[hsl(var(--muted-foreground))]">
+                      <ClipboardList className="h-8 w-8 mx-auto mb-2 opacity-50" />
+                      <p>Henüz talep geçmediniz</p>
+                    </td>
+                  </tr>
+                ) : (
+                  tumTalepler.map((talep) => (
+                    <tr
+                      key={talep.id}
+                      className={`border-b border-[hsl(var(--border))] hover:bg-[hsl(var(--muted))] ${
+                        talep.durum === 'reddedildi' ? 'bg-red-50/30 dark:bg-red-900/5' :
+                        talep.durum === 'onaylandi' ? 'bg-green-50/30 dark:bg-green-900/5' : ''
+                      }`}
+                    >
+                      <td className="px-4 py-3">
+                        <div className="flex items-center gap-3">
+                          <div className="w-8 h-8 rounded-lg bg-[hsl(var(--primary))]/10 flex items-center justify-center flex-shrink-0">
+                            <Package className="h-4 w-4 text-[hsl(var(--primary))]" />
+                          </div>
+                          <div>
+                            <div className="font-medium text-[hsl(var(--foreground))]">{talep.malzemeAdi}</div>
+                            <div className="text-xs text-[hsl(var(--muted-foreground))]">{talep.malzemeKodu}</div>
+                          </div>
+                        </div>
+                      </td>
+                      <td className="px-4 py-3 text-center">
+                        <span className="inline-flex items-center justify-center min-w-[3rem] h-8 rounded-lg bg-blue-500/10 text-blue-600 font-bold">
+                          {talep.talepMiktari.toLocaleString('tr-TR')}
+                        </span>
+                      </td>
+                      <td className="px-4 py-3 whitespace-nowrap text-[hsl(var(--muted-foreground))]">
+                        {new Date(talep.talepTarihi).toLocaleDateString('tr-TR', {
+                          day: '2-digit',
+                          month: '2-digit',
+                          year: 'numeric',
+                          hour: '2-digit',
+                          minute: '2-digit'
+                        })}
+                      </td>
+                      <td className="px-4 py-3 text-center whitespace-nowrap">
+                        {talep.durum === 'beklemede' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-yellow-100 text-yellow-700 dark:bg-yellow-900/20 dark:text-yellow-400">
+                            <Clock className="h-3 w-3" />
+                            Beklemede
+                          </span>
+                        )}
+                        {talep.durum === 'onaylandi' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-green-100 text-green-700 dark:bg-green-900/20 dark:text-green-400">
+                            <CheckCircle className="h-3 w-3" />
+                            Onaylandı
+                          </span>
+                        )}
+                        {talep.durum === 'reddedildi' && (
+                          <span className="inline-flex items-center gap-1 px-2 py-1 rounded-full text-xs font-medium bg-red-100 text-red-700 dark:bg-red-900/20 dark:text-red-400">
+                            <XCircle className="h-3 w-3" />
+                            Reddedildi
+                          </span>
+                        )}
+                      </td>
+                      <td className="px-4 py-3">
+                        {talep.durum === 'beklemede' && (
+                          <span className="text-[hsl(var(--muted-foreground))] text-sm">-</span>
+                        )}
+                        {talep.durum === 'onaylandi' && talep.onaylayanAd && (
+                          <div>
+                            <div className="text-sm text-green-600 font-medium">Onaylayan: {talep.onaylayanAd}</div>
+                            {talep.onayTarihi && (
+                              <div className="text-xs text-[hsl(var(--muted-foreground))]">
+                                {new Date(talep.onayTarihi).toLocaleDateString('tr-TR')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {talep.durum === 'reddedildi' && (
+                          <div>
+                            <div className="text-sm text-red-600 font-medium">
+                              {talep.redNedeni || 'Red nedeni belirtilmedi'}
+                            </div>
+                            {talep.onaylayanAd && (
+                              <div className="text-xs text-[hsl(var(--muted-foreground))]">
+                                {talep.onaylayanAd} • {talep.onayTarihi && new Date(talep.onayTarihi).toLocaleDateString('tr-TR')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                      </td>
+                    </tr>
+                  ))
+                )}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* Bottom Bar */}
-      {toplamTalepSayisi > 0 && (
+      {activeTab === 'yeni' && toplamTalepSayisi > 0 && (
         <div className="fixed bottom-0 left-0 right-0 lg:left-64 bg-[hsl(var(--card))] border-t border-[hsl(var(--border))] p-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <ShoppingCart className="h-5 w-5 text-[hsl(var(--primary))]" />

@@ -295,13 +295,14 @@ export default function TalepOnayPage() {
                 <th className="text-center px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase bg-blue-50 dark:bg-blue-900/10">Talep</th>
                 <th className="text-left px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Tarih</th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Durum</th>
+                <th className="text-left px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">Yanıt / Açıklama</th>
                 <th className="text-center px-4 py-3 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase">İşlem</th>
               </tr>
             </thead>
             <tbody>
               {filteredTalepler.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="px-4 py-12 text-center text-[hsl(var(--muted-foreground))]">
+                  <td colSpan={11} className="px-4 py-12 text-center text-[hsl(var(--muted-foreground))]">
                     <Package className="h-8 w-8 mx-auto mb-2 opacity-50" />
                     <p>Talep bulunamadı</p>
                   </td>
@@ -351,9 +352,31 @@ export default function TalepOnayPage() {
                       </td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">
                         {getDurumBadge(talep.durum)}
-                        {talep.durum === 'reddedildi' && talep.redNedeni && (
-                          <div className="text-xs text-red-500 mt-1 max-w-[150px] truncate" title={talep.redNedeni}>
-                            {talep.redNedeni}
+                      </td>
+                      <td className="px-4 py-3">
+                        {talep.durum === 'beklemede' && (
+                          <span className="text-[hsl(var(--muted-foreground))] text-sm italic">Yanıt bekleniyor...</span>
+                        )}
+                        {talep.durum === 'onaylandi' && (
+                          <div>
+                            <div className="text-sm text-green-600 font-medium">Onaylandı</div>
+                            {talep.onaylayanAd && (
+                              <div className="text-xs text-[hsl(var(--muted-foreground))]">
+                                {talep.onaylayanAd} • {talep.onayTarihi && new Date(talep.onayTarihi).toLocaleDateString('tr-TR')}
+                              </div>
+                            )}
+                          </div>
+                        )}
+                        {talep.durum === 'reddedildi' && (
+                          <div className="max-w-[250px]">
+                            <div className="text-sm text-red-600 font-medium">
+                              {talep.redNedeni || 'Red nedeni belirtilmedi'}
+                            </div>
+                            {talep.onaylayanAd && (
+                              <div className="text-xs text-[hsl(var(--muted-foreground))]">
+                                {talep.onaylayanAd} • {talep.onayTarihi && new Date(talep.onayTarihi).toLocaleDateString('tr-TR')}
+                              </div>
+                            )}
                           </div>
                         )}
                       </td>
@@ -382,10 +405,8 @@ export default function TalepOnayPage() {
                             </button>
                           </div>
                         )}
-                        {talep.durum !== 'beklemede' && talep.onaylayanAd && (
-                          <div className="text-xs text-[hsl(var(--muted-foreground))]">
-                            {talep.onaylayanAd}
-                          </div>
+                        {talep.durum !== 'beklemede' && (
+                          <span className="text-xs text-[hsl(var(--muted-foreground))]">-</span>
                         )}
                       </td>
                     </tr>
