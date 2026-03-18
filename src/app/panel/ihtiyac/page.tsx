@@ -247,8 +247,10 @@ export default function IhtiyacPage() {
         // =====================
         // ÜRETİM İHTİYACI HESABI (Ürün Bazlı)
         // =====================
-        // ÜRETİM = Düzeltilmiş Satış × (Ted Süre + Ek Süre) × (1+Fire%) - Depo - Stok - Yol
-        const projeksiyon = tahminSatis * toplamTedarikSuresi * birimTuketim * (1 + fireOrani / 100)
+        // ÜRETİM = Günlük Satış × (Ted Süre + Ek Süre gün) × (1+Fire%) - Depo - Stok - Yol
+        // tahminSatis haftalık, tedarikSuresi gün olduğu için günlük satışa çeviriyoruz
+        const gunlukTahminSatis = tahminSatis / 7
+        const projeksiyon = gunlukTahminSatis * toplamTedarikSuresi * birimTuketim * (1 + fireOrani / 100)
 
         // Mevcut toplam = Depo + Stok + Yol - Projeksiyon
         const mevcutToplam = depoStok + mevcutStok + yoldakiMiktar - projeksiyon
@@ -796,7 +798,7 @@ export default function IhtiyacPage() {
                   <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Min Stok</th>
                   <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Sevk İht.</th>
                   <th className="text-center px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap bg-blue-50 dark:bg-blue-900/10">Sevkiyat</th>
-                  <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Ted.(H)</th>
+                  <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Ted.(G)</th>
                   <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Projeks.</th>
                   <th className="text-right px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Ürt.İht.</th>
                   <th className="text-center px-3 py-2 text-xs font-medium text-[hsl(var(--muted-foreground))] uppercase whitespace-nowrap">Durum</th>
@@ -845,7 +847,7 @@ export default function IhtiyacPage() {
                           </span>
                         ) : '-'}
                       </td>
-                      <td className="px-3 py-2 text-right whitespace-nowrap text-[hsl(var(--muted-foreground))]">{i.toplamTedarikSuresi}h</td>
+                      <td className="px-3 py-2 text-right whitespace-nowrap text-[hsl(var(--muted-foreground))]">{i.toplamTedarikSuresi}g</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">{i.projeksiyon.toLocaleString('tr-TR')}</td>
                       <td className="px-3 py-2 text-right whitespace-nowrap">
                         <span className={i.uretimIhtiyaci > 0 ? 'text-orange-600 font-medium' : ''}>
@@ -924,7 +926,7 @@ export default function IhtiyacPage() {
                         ) : '-'}
                       </td>
                       <td className="px-4 py-3 text-right whitespace-nowrap text-[hsl(var(--muted-foreground))]">{u.minSiparisMiktari.toLocaleString('tr-TR')}</td>
-                      <td className="px-4 py-3 text-right whitespace-nowrap text-[hsl(var(--muted-foreground))]">{u.tedarikSuresi}h</td>
+                      <td className="px-4 py-3 text-right whitespace-nowrap text-[hsl(var(--muted-foreground))]">{u.tedarikSuresi}g</td>
                       <td className="px-4 py-3 text-center whitespace-nowrap">{getUretimDurumBadge(u.durum)}</td>
                     </tr>
                   ))
