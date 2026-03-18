@@ -17,17 +17,21 @@ import {
   User,
   Loader2,
   Users,
+  ShoppingCart,
+  CheckSquare,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 
 const sidebarItems = [
-  { name: 'Dashboard', href: '/panel', icon: LayoutDashboard, adminOnly: false },
-  { name: 'Malzemeler', href: '/panel/malzemeler', icon: Package, adminOnly: false },
-  { name: 'Mağazalar', href: '/panel/magazalar', icon: Store, adminOnly: false },
-  { name: 'Stok & Satış', href: '/panel/stok-satis', icon: ClipboardList, adminOnly: false },
-  { name: 'İhtiyaç Planlama', href: '/panel/ihtiyac', icon: BarChart3, adminOnly: false },
-  { name: 'Ayarlar', href: '/panel/ayarlar', icon: Settings, adminOnly: false },
-  { name: 'Kullanıcı Yönetimi', href: '/panel/kullanicilar', icon: Users, adminOnly: true },
+  { name: 'Dashboard', href: '/panel', icon: LayoutDashboard, roles: ['admin', 'yonetici', 'magaza'] },
+  { name: 'Talep Geçme', href: '/panel/talep-gecme', icon: ShoppingCart, roles: ['magaza'] },
+  { name: 'Talep Onay', href: '/panel/talep-onay', icon: CheckSquare, roles: ['admin', 'yonetici'] },
+  { name: 'Malzemeler', href: '/panel/malzemeler', icon: Package, roles: ['admin', 'yonetici'] },
+  { name: 'Mağazalar', href: '/panel/magazalar', icon: Store, roles: ['admin', 'yonetici'] },
+  { name: 'Stok & Satış', href: '/panel/stok-satis', icon: ClipboardList, roles: ['admin', 'yonetici'] },
+  { name: 'İhtiyaç Planlama', href: '/panel/ihtiyac', icon: BarChart3, roles: ['admin', 'yonetici'] },
+  { name: 'Ayarlar', href: '/panel/ayarlar', icon: Settings, roles: ['admin', 'yonetici'] },
+  { name: 'Kullanıcı Yönetimi', href: '/panel/kullanicilar', icon: Users, roles: ['admin'] },
 ]
 
 export default function PanelLayout({
@@ -122,7 +126,7 @@ export default function PanelLayout({
         {/* Navigation */}
         <nav className="p-3 space-y-1">
           {sidebarItems
-            .filter(item => !item.adminOnly || session.rol === 'admin')
+            .filter(item => item.roles.includes(session.rol))
             .map((item) => {
               const isActive = pathname === item.href || (item.href !== '/panel' && pathname.startsWith(item.href))
               const Icon = item.icon

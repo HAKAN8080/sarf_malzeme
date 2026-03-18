@@ -3,7 +3,7 @@
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
 import { onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from 'firebase/auth'
 import { auth } from './firebase'
-import type { Malzeme, Magaza, StokSatis, StokHareket, Kullanici, Kategori, ClusterAyar } from './types'
+import type { Malzeme, Magaza, StokSatis, StokHareket, Kullanici, Kategori, ClusterAyar, Talep, MagazaSevkiyat } from './types'
 import * as firestore from './firestore'
 
 // Session storage key (still using localStorage for session)
@@ -39,6 +39,8 @@ interface StoreContextType {
   kullanicilar: Kullanici[]
   kategoriler: Kategori[]
   clusterAyarlar: ClusterAyar[]
+  talepler: Talep[]
+  magazaSevkiyatlar: MagazaSevkiyat[]
   session: Session | null
   loading: boolean
 
@@ -69,6 +71,17 @@ interface StoreContextType {
   updateKullanici: (id: string, kullanici: Partial<Kullanici>) => Promise<void>
   deleteKullanici: (id: string) => Promise<void>
 
+  // Talep actions
+  addTalep: (talep: Omit<Talep, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
+  bulkAddTalepler: (talepler: Omit<Talep, 'id' | 'createdAt' | 'updatedAt'>[]) => Promise<void>
+  updateTalep: (id: string, updates: Partial<Talep>) => Promise<void>
+  onaylaTalep: (talepId: string, onaylayanId: string, onaylayanAd: string) => Promise<void>
+  reddetTalep: (talepId: string, onaylayanId: string, onaylayanAd: string, redNedeni: string) => Promise<void>
+
+  // MagazaSevkiyat actions
+  addMagazaSevkiyat: (sevkiyat: Omit<MagazaSevkiyat, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
+  refreshSevkiyatlar: () => Promise<void>
+
   // Refresh data from Firestore
   refreshData: () => Promise<void>
 
@@ -87,6 +100,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   const [kullanicilar, setKullanicilar] = useState<Kullanici[]>([])
   const [kategoriler, setKategoriler] = useState<Kategori[]>([])
   const [clusterAyarlar, setClusterAyarlar] = useState<ClusterAyar[]>([])
+  const [talepler, setTalepler] = useState<Talep[]>([])
+  const [magazaSevkiyatlar, setMagazaSevkiyatlar] = useState<MagazaSevkiyat[]>([])
   const [session, setSession] = useState<Session | null>(null)
   const [loading, setLoading] = useState(true)
 
@@ -120,6 +135,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         loadedKullanicilar,
         loadedKategoriler,
         loadedClusterAyarlar,
+        loadedTalepler,
+        loadedMagazaSevkiyatlar,
       ] = await Promise.all([
         firestore.getMalzemeler(),
         firestore.getMagazalar(),
@@ -128,6 +145,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         firestore.getKullanicilar(),
         firestore.getKategoriler(),
         firestore.getClusterAyarlar(),
+        firestore.getTalepler(),
+        firestore.getMagazaSevkiyatlar(),
       ])
 
       setMalzemeler(loadedMalzemeler)
@@ -137,6 +156,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
       setKullanicilar(loadedKullanicilar)
       setKategoriler(loadedKategoriler)
       setClusterAyarlar(loadedClusterAyarlar)
+      setTalepler(loadedTalepler)
+      setMagazaSevkiyatlar(loadedMagazaSevkiyatlar)
 
       // Load session from localStorage
       const savedSession = localStorage.getItem(SESSION_KEY)
@@ -367,6 +388,185 @@ export function StoreProvider({ children }: { children: ReactNode }) {
     }
   }
 
+  // Talep actions
+  const addTalep = async (talep: Omit<Talep, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const id = await firestore.addTalep(talep)
+      const newTalep: Talep = {
+        ...talep,
+        id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      setTalepler(prev => [...prev, newTalep])
+    } catch (error) {
+      console.error('Error adding talep:', error)
+      throw error
+    }
+  }
+
+  const bulkAddTalepler = async (taleplerData: Omit<Talep, 'id' | 'createdAt' | 'updatedAt'>[]) => {
+    try {
+      const ids = await firestore.bulkAddTalepler(taleplerData)
+      const now = new Date().toISOString()
+      const newTalepler: Talep[] = taleplerData.map((t, i) => ({
+        ...t,
+        id: ids[i],
+        createdAt: now,
+        updatedAt: now,
+      }))
+      setTalepler(prev => [...prev, ...newTalepler])
+    } catch (error) {
+      console.error('Error bulk adding talepler:', error)
+      throw error
+    }
+  }
+
+  const updateTalep = async (id: string, updates: Partial<Talep>) => {
+    try {
+      await firestore.updateTalep(id, updates)
+      setTalepler(prev =>
+        prev.map(t =>
+          t.id === id ? { ...t, ...updates, updatedAt: new Date().toISOString() } : t
+        )
+      )
+    } catch (error) {
+      console.error('Error updating talep:', error)
+      throw error
+    }
+  }
+
+  const onaylaTalep = async (talepId: string, onaylayanId: string, onaylayanAd: string) => {
+    try {
+      const talep = talepler.find(t => t.id === talepId)
+      if (!talep) throw new Error('Talep bulunamadı')
+
+      const now = new Date()
+      const startOfYear = new Date(now.getFullYear(), 0, 1)
+      const days = Math.floor((now.getTime() - startOfYear.getTime()) / (24 * 60 * 60 * 1000))
+      const currentWeek = Math.ceil((days + startOfYear.getDay() + 1) / 7)
+      const currentYear = now.getFullYear()
+
+      // Talebi onayla
+      await firestore.updateTalep(talepId, {
+        durum: 'onaylandi',
+        onaylayanKullaniciId: onaylayanId,
+        onaylayanAd: onaylayanAd,
+        onayTarihi: now.toISOString(),
+      })
+
+      // Sevkiyat tablosuna ekle (talep kaynağı olarak)
+      const sevkiyat: Omit<MagazaSevkiyat, 'id' | 'createdAt' | 'updatedAt'> = {
+        magazaKodu: talep.magazaKodu,
+        magazaAdi: talep.magazaAdi,
+        malzemeKodu: talep.malzemeKodu,
+        malzemeAdi: talep.malzemeAdi,
+        sevkMiktari: talep.talepMiktari,
+        kaynak: 'talep',
+        talepId: talepId,
+        sonHaftaStok: talep.sonHaftaStok,
+        sonHaftaSatis: talep.sonHaftaSatis,
+        yoldakiMiktar: talep.yoldakiMiktar,
+        depoStok: talep.depoStok,
+        tahminSatis: 0,
+        yil: currentYear,
+        hafta: currentWeek,
+        olusturanKullaniciId: onaylayanId,
+        olusturanAd: onaylayanAd,
+      }
+
+      const sevkiyatId = await firestore.addMagazaSevkiyat(sevkiyat)
+
+      // Local state güncelle
+      setTalepler(prev =>
+        prev.map(t =>
+          t.id === talepId
+            ? {
+                ...t,
+                durum: 'onaylandi' as const,
+                onaylayanKullaniciId: onaylayanId,
+                onaylayanAd: onaylayanAd,
+                onayTarihi: now.toISOString(),
+                updatedAt: now.toISOString(),
+              }
+            : t
+        )
+      )
+
+      setMagazaSevkiyatlar(prev => [
+        ...prev,
+        {
+          ...sevkiyat,
+          id: sevkiyatId,
+          createdAt: now.toISOString(),
+          updatedAt: now.toISOString(),
+        },
+      ])
+    } catch (error) {
+      console.error('Error approving talep:', error)
+      throw error
+    }
+  }
+
+  const reddetTalep = async (talepId: string, onaylayanId: string, onaylayanAd: string, redNedeni: string) => {
+    try {
+      const now = new Date().toISOString()
+      await firestore.updateTalep(talepId, {
+        durum: 'reddedildi',
+        onaylayanKullaniciId: onaylayanId,
+        onaylayanAd: onaylayanAd,
+        onayTarihi: now,
+        redNedeni: redNedeni,
+      })
+
+      setTalepler(prev =>
+        prev.map(t =>
+          t.id === talepId
+            ? {
+                ...t,
+                durum: 'reddedildi' as const,
+                onaylayanKullaniciId: onaylayanId,
+                onaylayanAd: onaylayanAd,
+                onayTarihi: now,
+                redNedeni: redNedeni,
+                updatedAt: now,
+              }
+            : t
+        )
+      )
+    } catch (error) {
+      console.error('Error rejecting talep:', error)
+      throw error
+    }
+  }
+
+  // MagazaSevkiyat actions
+  const addMagazaSevkiyat = async (sevkiyat: Omit<MagazaSevkiyat, 'id' | 'createdAt' | 'updatedAt'>) => {
+    try {
+      const id = await firestore.addMagazaSevkiyat(sevkiyat)
+      const newSevkiyat: MagazaSevkiyat = {
+        ...sevkiyat,
+        id,
+        createdAt: new Date().toISOString(),
+        updatedAt: new Date().toISOString(),
+      }
+      setMagazaSevkiyatlar(prev => [...prev, newSevkiyat])
+    } catch (error) {
+      console.error('Error adding magazaSevkiyat:', error)
+      throw error
+    }
+  }
+
+  const refreshSevkiyatlar = async () => {
+    try {
+      const loaded = await firestore.getMagazaSevkiyatlar()
+      setMagazaSevkiyatlar(loaded)
+    } catch (error) {
+      console.error('Error refreshing sevkiyatlar:', error)
+      throw error
+    }
+  }
+
   // Auth actions - Firebase Authentication
   const login = async (email: string, password: string): Promise<boolean> => {
     try {
@@ -427,6 +627,8 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         kullanicilar,
         kategoriler,
         clusterAyarlar,
+        talepler,
+        magazaSevkiyatlar,
         session,
         loading,
         addMalzeme,
@@ -443,6 +645,13 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addKullanici,
         updateKullanici,
         deleteKullanici,
+        addTalep,
+        bulkAddTalepler,
+        updateTalep,
+        onaylaTalep,
+        reddetTalep,
+        addMagazaSevkiyat,
+        refreshSevkiyatlar,
         refreshData,
         login,
         logout,

@@ -14,7 +14,7 @@ import {
   Timestamp,
 } from 'firebase/firestore'
 import { db } from './firebase'
-import type { Malzeme, Magaza, StokSatis, StokHareket, Kullanici, Kategori, ClusterAyar } from './types'
+import type { Malzeme, Magaza, StokSatis, StokHareket, Kullanici, Kategori, ClusterAyar, Talep, MagazaSevkiyat } from './types'
 
 // Collection names
 const COLLECTIONS = {
@@ -25,6 +25,8 @@ const COLLECTIONS = {
   KULLANICILAR: 'kullanicilar',
   KATEGORILER: 'kategoriler',
   CLUSTER_AYARLAR: 'clusterAyarlar',
+  TALEPLER: 'talepler',
+  MAGAZA_SEVKIYAT: 'magazaSevkiyat',
 } as const
 
 // ==================== MALZEMELER ====================
@@ -423,4 +425,169 @@ export const initializeDatabase = async (
   }
 
   await batch.commit()
+}
+
+// ==================== TALEPLER ====================
+
+export const getTalepler = async (): Promise<Talep[]> => {
+  const snapshot = await getDocs(collection(db, COLLECTIONS.TALEPLER))
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Talep))
+}
+
+export const getTaleplerByDurum = async (durum: 'beklemede' | 'onaylandi' | 'reddedildi'): Promise<Talep[]> => {
+  const q = query(collection(db, COLLECTIONS.TALEPLER), where('durum', '==', durum))
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Talep))
+}
+
+export const getTaleplerByMagaza = async (magazaKodu: string): Promise<Talep[]> => {
+  const q = query(collection(db, COLLECTIONS.TALEPLER), where('magazaKodu', '==', magazaKodu))
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as Talep))
+}
+
+export const addTalep = async (talep: Omit<Talep, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  const docRef = await addDoc(collection(db, COLLECTIONS.TALEPLER), {
+    ...talep,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  })
+  return docRef.id
+}
+
+export const updateTalep = async (id: string, updates: Partial<Talep>): Promise<void> => {
+  const docRef = doc(db, COLLECTIONS.TALEPLER, id)
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+export const deleteTalep = async (id: string): Promise<void> => {
+  await deleteDoc(doc(db, COLLECTIONS.TALEPLER, id))
+}
+
+// Toplu talep ekleme
+export const bulkAddTalepler = async (talepler: Omit<Talep, 'id' | 'createdAt' | 'updatedAt'>[]): Promise<string[]> => {
+  const ids: string[] = []
+  const batch = writeBatch(db)
+  const now = new Date().toISOString()
+
+  for (const talep of talepler) {
+    const docRef = doc(collection(db, COLLECTIONS.TALEPLER))
+    batch.set(docRef, {
+      ...talep,
+      createdAt: now,
+      updatedAt: now,
+    })
+    ids.push(docRef.id)
+  }
+
+  await batch.commit()
+  return ids
+}
+
+// ==================== MAGAZA SEVKIYAT ====================
+
+export const getMagazaSevkiyatlar = async (): Promise<MagazaSevkiyat[]> => {
+  const snapshot = await getDocs(collection(db, COLLECTIONS.MAGAZA_SEVKIYAT))
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MagazaSevkiyat))
+}
+
+export const getMagazaSevkiyatByHafta = async (yil: number, hafta: number): Promise<MagazaSevkiyat[]> => {
+  const q = query(
+    collection(db, COLLECTIONS.MAGAZA_SEVKIYAT),
+    where('yil', '==', yil),
+    where('hafta', '==', hafta)
+  )
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MagazaSevkiyat))
+}
+
+export const getMagazaSevkiyatByMagaza = async (magazaKodu: string): Promise<MagazaSevkiyat[]> => {
+  const q = query(collection(db, COLLECTIONS.MAGAZA_SEVKIYAT), where('magazaKodu', '==', magazaKodu))
+  const snapshot = await getDocs(q)
+  return snapshot.docs.map(doc => ({ id: doc.id, ...doc.data() } as MagazaSevkiyat))
+}
+
+// Deterministic ID: magazaKodu_malzemeKodu_yil_hafta
+const createSevkiyatId = (magazaKodu: string, malzemeKodu: string, yil: number, hafta: number): string => {
+  return `${magazaKodu}_${malzemeKodu}_${yil}_${hafta}`
+}
+
+export const addMagazaSevkiyat = async (sevkiyat: Omit<MagazaSevkiyat, 'id' | 'createdAt' | 'updatedAt'>): Promise<string> => {
+  const docId = createSevkiyatId(sevkiyat.magazaKodu, sevkiyat.malzemeKodu, sevkiyat.yil, sevkiyat.hafta)
+  const docRef = doc(db, COLLECTIONS.MAGAZA_SEVKIYAT, docId)
+
+  await setDoc(docRef, {
+    ...sevkiyat,
+    createdAt: new Date().toISOString(),
+    updatedAt: new Date().toISOString(),
+  }, { merge: true })
+
+  return docId
+}
+
+export const updateMagazaSevkiyat = async (id: string, updates: Partial<MagazaSevkiyat>): Promise<void> => {
+  const docRef = doc(db, COLLECTIONS.MAGAZA_SEVKIYAT, id)
+  await updateDoc(docRef, {
+    ...updates,
+    updatedAt: new Date().toISOString(),
+  })
+}
+
+export const deleteMagazaSevkiyat = async (id: string): Promise<void> => {
+  await deleteDoc(doc(db, COLLECTIONS.MAGAZA_SEVKIYAT, id))
+}
+
+// Hesaplama sonuçlarını sevkiyat tablosuna yaz (sadece kaynak='hesaplama' olanları günceller, talep olanları ezmez)
+export const bulkUpsertHesaplamaSevkiyat = async (
+  sevkiyatlar: Omit<MagazaSevkiyat, 'id' | 'createdAt' | 'updatedAt'>[],
+  yil: number,
+  hafta: number
+): Promise<{ inserted: number; skipped: number }> => {
+  let inserted = 0
+  let skipped = 0
+  const now = new Date().toISOString()
+
+  // Önce mevcut hafta için talep kaynaklı sevkiyatları al
+  const mevcutSevkiyatlar = await getMagazaSevkiyatByHafta(yil, hafta)
+  const talepKaynaklilar = new Set(
+    mevcutSevkiyatlar
+      .filter(s => s.kaynak === 'talep')
+      .map(s => `${s.magazaKodu}_${s.malzemeKodu}`)
+  )
+
+  const BATCH_SIZE = 400
+  for (let i = 0; i < sevkiyatlar.length; i += BATCH_SIZE) {
+    const batchWrite = writeBatch(db)
+    const chunk = sevkiyatlar.slice(i, i + BATCH_SIZE)
+
+    for (const sevkiyat of chunk) {
+      const key = `${sevkiyat.magazaKodu}_${sevkiyat.malzemeKodu}`
+
+      // Eğer bu mağaza+malzeme için talep kaynaklı sevkiyat varsa, ezme
+      if (talepKaynaklilar.has(key)) {
+        skipped++
+        continue
+      }
+
+      const docId = createSevkiyatId(sevkiyat.magazaKodu, sevkiyat.malzemeKodu, yil, hafta)
+      const docRef = doc(db, COLLECTIONS.MAGAZA_SEVKIYAT, docId)
+
+      batchWrite.set(docRef, {
+        ...sevkiyat,
+        yil,
+        hafta,
+        kaynak: 'hesaplama',
+        updatedAt: now,
+      }, { merge: true })
+
+      inserted++
+    }
+
+    await batchWrite.commit()
+  }
+
+  return { inserted, skipped }
 }

@@ -177,3 +177,57 @@ export interface DashboardStats {
   bugunCiro: number
   bekleyenSiparis: number
 }
+
+// Mağaza Talebi
+export interface Talep {
+  id: string
+  magazaKodu: string
+  magazaAdi: string
+  malzemeKodu: string
+  malzemeAdi: string
+  talepMiktari: number
+  // Son hafta verileri (talep anındaki snapshot)
+  sonHaftaStok: number
+  sonHaftaSatis: number
+  yoldakiMiktar: number
+  depoStok: number
+  // Durum
+  durum: 'beklemede' | 'onaylandi' | 'reddedildi'
+  // Meta
+  talepEdenKullaniciId: string
+  talepEdenAd: string
+  talepTarihi: string
+  onaylayanKullaniciId?: string
+  onaylayanAd?: string
+  onayTarihi?: string
+  redNedeni?: string
+  createdAt: string
+  updatedAt: string
+}
+
+// Mağaza Sevkiyat (Pull + Push birleşik tablo)
+export interface MagazaSevkiyat {
+  id: string
+  magazaKodu: string
+  magazaAdi: string
+  malzemeKodu: string
+  malzemeAdi: string
+  sevkMiktari: number
+  // Kaynak tipi
+  kaynak: 'hesaplama' | 'talep' // hesaplama = pull, talep = push
+  talepId?: string // Eğer talepten geldiyse referans
+  // Hesaplama anındaki veriler
+  sonHaftaStok: number
+  sonHaftaSatis: number
+  yoldakiMiktar: number
+  depoStok: number
+  tahminSatis: number
+  // Dönem bilgisi
+  yil: number
+  hafta: number
+  // Meta
+  olusturanKullaniciId: string
+  olusturanAd: string
+  createdAt: string
+  updatedAt: string
+}
