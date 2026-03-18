@@ -14,19 +14,22 @@ import {
   ShieldCheck,
   Store,
   AlertCircle,
+  KeyRound,
+  Check,
 } from 'lucide-react'
 import { useStore } from '@/lib/store'
 import type { Kullanici } from '@/lib/types'
 
 export default function KullanicilarPage() {
   const router = useRouter()
-  const { kullanicilar, addKullanici, updateKullanici, deleteKullanici, session } = useStore()
+  const { kullanicilar, magazalar, addKullanici, updateKullanici, deleteKullanici, resetPassword, session } = useStore()
   const [searchTerm, setSearchTerm] = useState('')
   const [showModal, setShowModal] = useState(false)
   const [editingKullanici, setEditingKullanici] = useState<Kullanici | null>(null)
   const [deleteConfirm, setDeleteConfirm] = useState<string | null>(null)
   const [formError, setFormError] = useState<string | null>(null)
   const [isSubmitting, setIsSubmitting] = useState(false)
+  const [resetEmailSent, setResetEmailSent] = useState<string | null>(null)
 
   // Admin kontrolü
   if (session?.rol !== 'admin') {
@@ -38,7 +41,9 @@ export default function KullanicilarPage() {
   const [formData, setFormData] = useState({
     email: '',
     ad: '',
+    sifre: '',
     rol: 'yonetici' as 'admin' | 'yonetici' | 'magaza',
+    magazaId: '',
     aktif: true,
   })
 
@@ -57,7 +62,9 @@ export default function KullanicilarPage() {
     setFormData({
       email: '',
       ad: '',
+      sifre: '',
       rol: 'yonetici',
+      magazaId: '',
       aktif: true,
     })
     setFormError(null)
@@ -69,7 +76,9 @@ export default function KullanicilarPage() {
     setFormData({
       email: kullanici.email,
       ad: kullanici.ad,
+      sifre: '',
       rol: kullanici.rol,
+      magazaId: kullanici.magazaId || '',
       aktif: kullanici.aktif,
     })
     setFormError(null)
@@ -83,9 +92,16 @@ export default function KullanicilarPage() {
 
     try {
       if (editingKullanici) {
-        await updateKullanici(editingKullanici.id, formData)
+        const { sifre, ...updateData } = formData
+        await updateKullanici(editingKullanici.id, updateData)
       } else {
-        await addKullanici(formData)
+        if (!formData.sifre || formData.sifre.length < 6) {
+          setFormError('Şifre en az 6 karakter olmalıdır')
+          setIsSubmitting(false)
+          return
+        }
+        const { sifre, ...kullaniciData } = formData
+        await addKullanici(kullaniciData, sifre)
       }
       setShowModal(false)
     } catch (error: unknown) {
@@ -97,6 +113,16 @@ export default function KullanicilarPage() {
       }
     } finally {
       setIsSubmitting(false)
+    }
+  }
+
+  const handleResetPassword = async (email: string) => {
+    try {
+      await resetPassword(email)
+      setResetEmailSent(email)
+      setTimeout(() => setResetEmailSent(null), 5000)
+    } catch (error) {
+      console.error('Error resetting password:', error)
     }
   }
 
@@ -210,6 +236,19 @@ export default function KullanicilarPage() {
                     </td>
                     <td className="px-4 py-3">
                       <div className="flex items-center justify-end gap-1">
+                        {resetEmailSent === kullanici.email ? (
+                          <span className="flex items-center gap-1 text-xs text-green-600">
+                            <Check className="h-3 w-3" /> Gönderildi
+                          </span>
+                        ) : (
+                          <button
+                            onClick={() => handleResetPassword(kullanici.email)}
+                            className="p-1.5 hover:bg-blue-100 dark:hover:bg-blue-900/20 rounded transition-colors"
+                            title="Şifre sıfırlama emaili gönder"
+                          >
+                            <KeyRound className="h-4 w-4 text-blue-500" />
+                          </button>
+                        )}
                         <button
                           onClick={() => openEditModal(kullanici)}
                           className="p-1.5 hover:bg-[hsl(var(--accent))] rounded transition-colors"
@@ -255,13 +294,6 @@ export default function KullanicilarPage() {
                 </div>
               )}
 
-              {!editingKullanici && (
-                <div className="p-3 rounded-lg bg-blue-50 dark:bg-blue-900/10 text-blue-600 dark:text-blue-400 text-sm">
-                  Yeni kullanıcı Firebase Console &gt; Authentication &gt; Users üzerinden eklenmeli.
-                  Burada sadece rol ve bilgiler kaydedilir.
-                </div>
-              )}
-
               <div>
                 <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">Ad Soyad *</label>
                 <input
@@ -286,11 +318,25 @@ export default function KullanicilarPage() {
                   <p className="mt-1 text-xs text-[hsl(var(--muted-foreground))]">Email değiştirilemez</p>
                 )}
               </div>
+              {!editingKullanici && (
+                <div>
+                  <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">Şifre *</label>
+                  <input
+                    type="password"
+                    value={formData.sifre}
+                    onChange={(e) => setFormData({ ...formData, sifre: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]"
+                    required
+                    minLength={6}
+                    placeholder="En az 6 karakter"
+                  />
+                </div>
+              )}
               <div>
                 <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">Rol *</label>
                 <select
                   value={formData.rol}
-                  onChange={(e) => setFormData({ ...formData, rol: e.target.value as 'admin' | 'yonetici' | 'magaza' })}
+                  onChange={(e) => setFormData({ ...formData, rol: e.target.value as 'admin' | 'yonetici' | 'magaza', magazaId: '' })}
                   className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]"
                 >
                   <option value="admin">Admin</option>
@@ -298,6 +344,22 @@ export default function KullanicilarPage() {
                   <option value="magaza">Mağaza</option>
                 </select>
               </div>
+              {formData.rol === 'magaza' && (
+                <div>
+                  <label className="block text-sm font-medium text-[hsl(var(--foreground))] mb-1">Mağaza *</label>
+                  <select
+                    value={formData.magazaId}
+                    onChange={(e) => setFormData({ ...formData, magazaId: e.target.value })}
+                    className="w-full px-3 py-2 rounded-lg border border-[hsl(var(--border))] bg-[hsl(var(--background))] text-[hsl(var(--foreground))] focus:outline-none focus:ring-2 focus:ring-[hsl(var(--primary))]"
+                    required
+                  >
+                    <option value="">Mağaza Seçin</option>
+                    {magazalar.filter(m => m.aktif).map(m => (
+                      <option key={m.id} value={m.id}>{m.magazaAdi} ({m.magazaKodu})</option>
+                    ))}
+                  </select>
+                </div>
+              )}
               <div className="flex items-center gap-2">
                 <input
                   type="checkbox"

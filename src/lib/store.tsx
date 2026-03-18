@@ -1,7 +1,7 @@
 'use client'
 
 import React, { createContext, useContext, useEffect, useState, ReactNode, useCallback } from 'react'
-import { onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword } from 'firebase/auth'
+import { onAuthStateChanged, signInWithEmailAndPassword, signOut, createUserWithEmailAndPassword, sendPasswordResetEmail } from 'firebase/auth'
 import { auth } from './firebase'
 import type { Malzeme, Magaza, StokSatis, StokHareket, Kullanici, Kategori, ClusterAyar, Talep, MagazaSevkiyat } from './types'
 import * as firestore from './firestore'
@@ -67,9 +67,10 @@ interface StoreContextType {
   updateClusterAyar: (cluster: string, yolSuresi: number) => Promise<void>
 
   // Kullanici actions
-  addKullanici: (kullanici: Omit<Kullanici, 'id' | 'createdAt'>) => Promise<void>
+  addKullanici: (kullanici: Omit<Kullanici, 'id' | 'createdAt'>, password: string) => Promise<void>
   updateKullanici: (id: string, kullanici: Partial<Kullanici>) => Promise<void>
   deleteKullanici: (id: string) => Promise<void>
+  resetPassword: (email: string) => Promise<void>
 
   // Talep actions
   addTalep: (talep: Omit<Talep, 'id' | 'createdAt' | 'updatedAt'>) => Promise<void>
@@ -351,17 +352,44 @@ export function StoreProvider({ children }: { children: ReactNode }) {
   }
 
   // Kullanici actions
-  const addKullanici = async (kullanici: Omit<Kullanici, 'id' | 'createdAt'>) => {
+  const addKullanici = async (kullanici: Omit<Kullanici, 'id' | 'createdAt'>, password: string) => {
     try {
-      const id = await firestore.addKullanici(kullanici)
+      // Önce Firebase Auth'a kullanıcı oluştur
+      const userCredential = await createUserWithEmailAndPassword(auth, kullanici.email, password)
+      const firebaseUid = userCredential.user.uid
+
+      // Sonra Firestore'a kaydet
+      const kullaniciWithUid = { ...kullanici, firebaseUid }
+      const id = await firestore.addKullanici(kullaniciWithUid)
+
       const newKullanici: Kullanici = {
-        ...kullanici,
+        ...kullaniciWithUid,
         id,
         createdAt: new Date().toISOString(),
       }
       setKullanicilar(prev => [...prev, newKullanici])
-    } catch (error) {
+    } catch (error: unknown) {
       console.error('Error adding kullanici:', error)
+      // Firebase Auth hata mesajlarını Türkçeleştir
+      if (error && typeof error === 'object' && 'code' in error) {
+        const firebaseError = error as { code: string }
+        if (firebaseError.code === 'auth/email-already-in-use') {
+          throw new Error('Bu email adresi zaten kullanımda')
+        } else if (firebaseError.code === 'auth/weak-password') {
+          throw new Error('Şifre en az 6 karakter olmalıdır')
+        } else if (firebaseError.code === 'auth/invalid-email') {
+          throw new Error('Geçersiz email adresi')
+        }
+      }
+      throw error
+    }
+  }
+
+  const resetPassword = async (email: string) => {
+    try {
+      await sendPasswordResetEmail(auth, email)
+    } catch (error) {
+      console.error('Error sending password reset email:', error)
       throw error
     }
   }
@@ -645,6 +673,7 @@ export function StoreProvider({ children }: { children: ReactNode }) {
         addKullanici,
         updateKullanici,
         deleteKullanici,
+        resetPassword,
         addTalep,
         bulkAddTalepler,
         updateTalep,
